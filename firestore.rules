@@ -31,6 +31,15 @@ service cloud.firestore {
 
     match /users/{uid} {
 
+      function ejercicioAbierto(anio) {
+        return anio is int
+          && get(/databases/$(database)/documents/users/$(uid)/ejercicios/$(string(anio))).data.estado == 'abierto';
+      }
+
+      function fechaDe(d) {
+        return d.fecha is string && d.fecha.matches(string(d.ejercicio) + '-[0-9]{2}-[0-9]{2}');
+      }
+
       match /config/empresa {
         allow read: if autorizado(uid);
         allow create: if autorizado(uid)
@@ -67,27 +76,27 @@ service cloud.firestore {
           && request.resource.data.anio is int
           && string(request.resource.data.anio) == anio
           && request.resource.data.estado == 'abierto'
-          && request.resource.data.contadorAsientos == 0;
+          && request.resource.data.contadorAsientos == 0
+          && request.resource.data.get('contadorFacturas', 0) == 0;
         // El contador solo avanza y un ejercicio cerrado no se reabre.
         allow update: if autorizado(uid)
           && resource.data.estado == 'abierto'
-          && cambiaSolo(['estado', 'contadorAsientos'])
+          && cambiaSolo(['estado', 'contadorAsientos', 'contadorFacturas'])
           && request.resource.data.estado in ['abierto', 'cerrado']
           && request.resource.data.contadorAsientos is int
-          && request.resource.data.contadorAsientos >= resource.data.contadorAsientos;
+          && request.resource.data.contadorAsientos >= resource.data.contadorAsientos
+          // Puede bajar en 1 al borrar la última factura emitida.
+          && (!('contadorFacturas' in request.resource.data)
+              || (request.resource.data.contadorFacturas is int && request.resource.data.contadorFacturas >= 0));
         allow delete: if false;
       }
 
       match /asientos/{asientoId} {
-        function ejercicioAbierto(anio) {
-          return get(/databases/$(database)/documents/users/$(uid)/ejercicios/$(string(anio))).data.estado == 'abierto';
-        }
         function asientoValido() {
           let d = request.resource.data;
           return d.ejercicio is int
             && d.numero is int && d.numero > 0
-            && d.fecha is string
-            && d.fecha.matches(string(d.ejercicio) + '-[0-9]{2}-[0-9]{2}')
+            && fechaDe(d)
             && textoMax(d.concepto, 300)
             && d.lineas is list && d.lineas.size() >= 2 && d.lineas.size() <= 200
             && d.cuentas is list
@@ -104,8 +113,93 @@ service cloud.firestore {
         allow delete: if autorizado(uid) && ejercicioAbierto(resource.data.ejercicio);
       }
 
-      // Resto de colecciones (terceros, categorías, facturas…): se irán
-      // añadiendo con sus propias validaciones. Denegado por defecto.
+      match /terceros/{id} {
+        function terceroValido() {
+          let d = request.resource.data;
+          return soloCampos(['tipo', 'nombre', 'nif', 'email', 'domicilio', 'cuenta', 'categoriaPorDefectoId', 'activo'])
+            && d.tipo in ['cliente', 'proveedor', 'acreedor']
+            && d.nombre is string && d.nombre.size() >= 1 && d.nombre.size() <= 150
+            && textoMax(d.nif, 20) && textoMax(d.email, 150) && textoMax(d.domicilio, 300)
+            && d.cuenta is string && d.cuenta.matches('^4[0-9]{6}$')
+            && (d.categoriaPorDefectoId == null || d.categoriaPorDefectoId is string)
+            && d.activo is bool;
+        }
+        allow read: if autorizado(uid);
+        allow create: if autorizado(uid) && terceroValido();
+        allow update: if autorizado(uid) && terceroValido()
+          && request.resource.data.cuenta == resource.data.cuenta
+          && request.resource.data.tipo == resource.data.tipo;
+        allow delete: if false;
+      }
+
+      match /categorias/{id} {
+        function categoriaValida() {
+          let d = request.resource.data;
+          return soloCampos(['nombre', 'color', 'cuentaGasto', 'activa'])
+            && d.nombre is string && d.nombre.size() >= 1 && d.nombre.size() <= 80
+            && textoMax(d.color, 20)
+            && d.cuentaGasto is string && d.cuentaGasto.matches('^6[0-9]{2,11}$')
+            && d.activa is bool;
+        }
+        allow read: if autorizado(uid);
+        allow create: if autorizado(uid) && categoriaValida();
+        // La cuenta de gasto no cambia: los asientos ya generados la usan.
+        allow update: if autorizado(uid) && categoriaValida()
+          && request.resource.data.cuentaGasto == resource.data.cuentaGasto;
+        allow delete: if false;
+      }
+
+      function facturaValida(d) {
+        return d.ejercicio is int
+          && fechaDe(d)
+          && d.numero is string && d.numero.size() >= 1 && d.numero.size() <= 40
+          && d.terceroId is string && d.terceroCuenta is string && d.terceroNombre is string
+          && d.lineas is list && d.lineas.size() >= 1 && d.lineas.size() <= 100
+          && d.bases is list
+          && d.baseCent is int && d.cuotaIvaCent is int && d.retencionCent is int && d.totalCent is int
+          && d.totalCent == d.baseCent + d.cuotaIvaCent - d.retencionCent
+          && d.asientoId is string;
+      }
+
+      // Cobrar o pagar solo cambia el estado: se permite aunque el ejercicio
+      // de la factura esté cerrado (el asiento del cobro va al ejercicio nuevo).
+      function soloTesoreria() {
+        return cambiaSolo(['estado', 'cobro', 'pago']);
+      }
+
+      match /facturasEmitidas/{id} {
+        function emitidaValida() {
+          let d = request.resource.data;
+          return facturaValida(d)
+            && d.secuencia is int && d.secuencia > 0
+            && d.cuentaIngreso is string && d.cuentaIngreso.matches('^7[0-9]{2,11}$')
+            && d.estado in ['pendiente', 'cobrada'];
+        }
+        allow read: if autorizado(uid);
+        allow create: if autorizado(uid) && emitidaValida() && ejercicioAbierto(request.resource.data.ejercicio);
+        allow update: if autorizado(uid) && emitidaValida()
+          && request.resource.data.ejercicio == resource.data.ejercicio
+          && request.resource.data.numero == resource.data.numero
+          && request.resource.data.secuencia == resource.data.secuencia
+          && (ejercicioAbierto(resource.data.ejercicio) || soloTesoreria());
+        allow delete: if autorizado(uid) && ejercicioAbierto(resource.data.ejercicio);
+      }
+
+      match /facturasRecibidas/{id} {
+        function recibidaValida() {
+          let d = request.resource.data;
+          return facturaValida(d)
+            && d.categoriaId is string && d.categoriaId.size() > 0
+            && d.ivaDeducible is bool
+            && d.estado in ['pendiente', 'pagada'];
+        }
+        allow read: if autorizado(uid);
+        allow create: if autorizado(uid) && recibidaValida() && ejercicioAbierto(request.resource.data.ejercicio);
+        allow update: if autorizado(uid) && recibidaValida()
+          && request.resource.data.ejercicio == resource.data.ejercicio
+          && (ejercicioAbierto(resource.data.ejercicio) || soloTesoreria());
+        allow delete: if autorizado(uid) && ejercicioAbierto(resource.data.ejercicio);
+      }
     }
   }
 }

@@ -1,6 +1,7 @@
 import { getDoc, onSnapshot, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
 import { PGC_PYMES } from '../data/pgc-pymes'
+import { sembrarCategorias } from './categorias'
 import { cuentaRef, ejercicioRef, empresaRef } from './paths'
 
 export interface Empresa {
@@ -29,7 +30,8 @@ export function suscribirEmpresa(uid: string, cb: (e: Empresa | null) => void, o
 
 /**
  * Alta inicial: datos de la empresa, plan de cuentas PGC PYMES y ejercicio
- * abierto. Se hace en un único batch (unas 150 escrituras, límite 500).
+ * abierto y categorías de gasto predeterminadas. Se hace en un único batch
+ * (unas 150 escrituras, límite 500).
  */
 export async function inicializarEmpresa(uid: string, datos: DatosEmpresa, anio: number) {
   const existing = await getDoc(empresaRef(uid))
@@ -39,7 +41,8 @@ export async function inicializarEmpresa(uid: string, datos: DatosEmpresa, anio:
   for (const c of PGC_PYMES) {
     batch.set(cuentaRef(uid, c.codigo), { ...c, activa: true })
   }
-  batch.set(ejercicioRef(uid, anio), { anio, estado: 'abierto', contadorAsientos: 0 })
+  batch.set(ejercicioRef(uid, anio), { anio, estado: 'abierto', contadorAsientos: 0, contadorFacturas: 0 })
+  sembrarCategorias(batch, uid)
   batch.set(empresaRef(uid), {
     ...datos,
     ejercicioActivo: anio,
