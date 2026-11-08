@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from 'react'
-import { useUid } from '../../auth/AuthProvider'
+import { useEmpresaId } from '../../auth/AuthProvider'
 import { Alert, Button, Field, Input } from '../../components/ui'
 import { MENSAJES_ERROR_SUBCUENTA, validarNuevaSubcuenta, type Cuenta } from '../../lib/cuentas'
 import { crearCuenta } from '../../services/cuentas'
 
 export function NuevaSubcuenta({ cuentas, onDone }: { cuentas: Cuenta[]; onDone: () => void }) {
-  const uid = useUid()
+  const eid = useEmpresaId()
   const [codigo, setCodigo] = useState('')
   const [nombre, setNombre] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -21,7 +21,7 @@ export function NuevaSubcuenta({ cuentas, onDone }: { cuentas: Cuenta[]; onDone:
     if (nombre.trim().length < 2) return setError('Escribe un nombre para la subcuenta.')
     setSaving(true)
     try {
-      await crearCuenta(uid, { codigo, nombre: nombre.trim(), naturaleza: v.padre.naturaleza, activa: true })
+      await crearCuenta(eid, { codigo, nombre: nombre.trim(), naturaleza: v.padre.naturaleza, activa: true })
       onDone()
     } catch {
       setError('No se ha podido crear la subcuenta.')

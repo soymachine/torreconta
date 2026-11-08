@@ -19,7 +19,7 @@ function resultadoLiquidacion(b: BorradorAsiento): number {
 const CASILLAS: Record<number, [string, string]> = { 4: ['01', '03'], 10: ['04', '06'], 21: ['07', '09'] }
 
 export function IvaPage() {
-  const { uid, anio, emitidas, recibidas, asientos, cuentas, ejercicio } = useLibros()
+  const { eid, anio, emitidas, recibidas, asientos, cuentas, ejercicio } = useLibros()
   const [verLiq, setVerLiq] = useState(false)
   const [errorLiq, setErrorLiq] = useState<string | null>(null)
   const [t, setT] = useState<Trimestre>(() => trimestreActual(anio))
@@ -29,7 +29,7 @@ export function IvaPage() {
   const liquidar = async () => {
     setErrorLiq(null)
     try {
-      await contabilizarLiquidacionIva(uid, anio, t, asientos, cuentas)
+      await contabilizarLiquidacionIva(eid, anio, t, asientos, cuentas)
       setVerLiq(false)
     } catch (e) {
       setErrorLiq(errorMsg(e))

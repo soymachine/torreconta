@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useUid } from '../../auth/AuthProvider'
+import { useEmpresaId } from '../../auth/AuthProvider'
 import { Alert, Button, Card, Input, Select } from '../../components/ui'
 import { esImputable, GRUPOS, type Cuenta } from '../../lib/cuentas'
 import { actualizarCuenta } from '../../services/cuentas'
@@ -16,7 +16,7 @@ const naturalezaLabel: Record<Cuenta['naturaleza'], string> = {
 }
 
 export function CuentasPage() {
-  const uid = useUid()
+  const eid = useEmpresaId()
   const { cuentas } = useLibros()
   const [busqueda, setBusqueda] = useState('')
   const [grupo, setGrupo] = useState('')
@@ -41,7 +41,7 @@ export function CuentasPage() {
     const nombre = editando.nombre.trim()
     if (nombre.length < 2) return setOpError('El nombre es demasiado corto.')
     try {
-      await actualizarCuenta(uid, editando.codigo, { nombre })
+      await actualizarCuenta(eid, editando.codigo, { nombre })
       setEditando(null)
       setOpError(null)
     } catch {
@@ -51,7 +51,7 @@ export function CuentasPage() {
 
   const toggleActiva = async (c: Cuenta) => {
     try {
-      await actualizarCuenta(uid, c.codigo, { activa: !c.activa })
+      await actualizarCuenta(eid, c.codigo, { activa: !c.activa })
     } catch {
       setOpError('No se ha podido cambiar el estado de la cuenta.')
     }

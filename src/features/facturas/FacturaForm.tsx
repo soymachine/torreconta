@@ -24,7 +24,7 @@ type Props =
 
 export function FacturaForm(props: Props) {
   const { tipo, existente, fechaInicial, onDone } = props
-  const { uid, anio, empresa, cuentas, terceros, categorias } = useLibros()
+  const { eid, anio, empresa, cuentas, terceros, categorias } = useLibros()
   const tiposTercero: TipoTercero[] = tipo === 'emitida' ? ['cliente'] : ['proveedor', 'acreedor']
   const recibida = tipo === 'recibida' ? props.existente : undefined
   const emitida = tipo === 'emitida' ? props.existente : undefined
@@ -83,7 +83,7 @@ export function FacturaForm(props: Props) {
       if (tipo === 'emitida') {
         if (!cuentasIngreso.some((c) => c.codigo === cuentaIngreso)) throw new Error('Elige una cuenta de ingresos válida.')
         await guardarFacturaEmitida(
-          uid,
+          eid,
           { serie: empresa.serieFacturas, anio, cuentas },
           { fecha, tercero, lineas: utiles, irpfPct, cuentaIngreso },
           emitida,
@@ -92,7 +92,7 @@ export function FacturaForm(props: Props) {
         const categoria = categorias.find((c) => c.id === categoriaId)
         if (!categoria) throw new Error('Elige la categoría de gasto.')
         await guardarFacturaRecibida(
-          uid,
+          eid,
           { anio, cuentas },
           { fecha, numero, tercero, lineas: utiles, irpfPct, ivaDeducible, categoria },
           recibida,

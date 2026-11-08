@@ -1,23 +1,28 @@
 import { collection, doc } from 'firebase/firestore'
 import { db } from '../firebase'
 
-const u = (uid: string, ...rest: string[]) => ['users', uid, ...rest] as const
+/**
+ * Todos los datos contables cuelgan de /empresas/{eid}. Los usuarios
+ * autorizados (/autorizados/{uid}) apuntan a su empresa con `empresaId`,
+ * así varios usuarios pueden compartir la misma contabilidad.
+ */
+const e = (eid: string, ...rest: string[]) => ['empresas', eid, ...rest] as const
 
-export const empresaRef = (uid: string) => doc(db, ...u(uid, 'config', 'empresa'))
-export const cuentasCol = (uid: string) => collection(db, ...u(uid, 'cuentas'))
-export const cuentaRef = (uid: string, codigo: string) => doc(db, ...u(uid, 'cuentas', codigo))
-export const ejerciciosCol = (uid: string) => collection(db, ...u(uid, 'ejercicios'))
-export const ejercicioRef = (uid: string, anio: number) => doc(db, ...u(uid, 'ejercicios', String(anio)))
-export const asientosCol = (uid: string) => collection(db, ...u(uid, 'asientos'))
-export const asientoRef = (uid: string, id: string) => doc(db, ...u(uid, 'asientos', id))
-export const tercerosCol = (uid: string) => collection(db, ...u(uid, 'terceros'))
-export const terceroRef = (uid: string, id: string) => doc(db, ...u(uid, 'terceros', id))
-export const categoriasCol = (uid: string) => collection(db, ...u(uid, 'categorias'))
-export const categoriaRef = (uid: string, id: string) => doc(db, ...u(uid, 'categorias', id))
-export const emitidasCol = (uid: string) => collection(db, ...u(uid, 'facturasEmitidas'))
-export const emitidaRef = (uid: string, id: string) => doc(db, ...u(uid, 'facturasEmitidas', id))
-export const recibidasCol = (uid: string) => collection(db, ...u(uid, 'facturasRecibidas'))
-export const recibidaRef = (uid: string, id: string) => doc(db, ...u(uid, 'facturasRecibidas', id))
+export const empresaRef = (eid: string) => doc(db, ...e(eid, 'config', 'empresa'))
+export const cuentasCol = (eid: string) => collection(db, ...e(eid, 'cuentas'))
+export const cuentaRef = (eid: string, codigo: string) => doc(db, ...e(eid, 'cuentas', codigo))
+export const ejerciciosCol = (eid: string) => collection(db, ...e(eid, 'ejercicios'))
+export const ejercicioRef = (eid: string, anio: number) => doc(db, ...e(eid, 'ejercicios', String(anio)))
+export const asientosCol = (eid: string) => collection(db, ...e(eid, 'asientos'))
+export const asientoRef = (eid: string, id: string) => doc(db, ...e(eid, 'asientos', id))
+export const tercerosCol = (eid: string) => collection(db, ...e(eid, 'terceros'))
+export const terceroRef = (eid: string, id: string) => doc(db, ...e(eid, 'terceros', id))
+export const categoriasCol = (eid: string) => collection(db, ...e(eid, 'categorias'))
+export const categoriaRef = (eid: string, id: string) => doc(db, ...e(eid, 'categorias', id))
+export const emitidasCol = (eid: string) => collection(db, ...e(eid, 'facturasEmitidas'))
+export const emitidaRef = (eid: string, id: string) => doc(db, ...e(eid, 'facturasEmitidas', id))
+export const recibidasCol = (eid: string) => collection(db, ...e(eid, 'facturasRecibidas'))
+export const recibidaRef = (eid: string, id: string) => doc(db, ...e(eid, 'facturasRecibidas', id))
 export const autorizadoRef = (uid: string) => doc(db, 'autorizados', uid)
 
 /** Referencia con id autogenerado (para crear varios documentos en una transacción). */

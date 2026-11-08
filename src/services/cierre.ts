@@ -17,14 +17,14 @@ function comprobar(b: BorradorAsiento, cuentas: readonly Cuenta[], anio: number,
   if (errores.length) throw new Error(errores.join(' '))
 }
 
-function crear(tx: Transaction, uid: string, b: BorradorAsiento, ejercicio: number, numero: number, origen: OrigenAsiento, origenId: string | null) {
-  const ref = nuevoId(asientosCol(uid))
+function crear(tx: Transaction, eid: string, b: BorradorAsiento, ejercicio: number, numero: number, origen: OrigenAsiento, origenId: string | null) {
+  const ref = nuevoId(asientosCol(eid))
   tx.set(ref, aAsientoData(b, { ejercicio, numero, origen, origenId }))
   return ref.id
 }
 
 export async function contabilizarLiquidacionIva(
-  uid: string,
+  eid: string,
   anio: number,
   t: Trimestre,
   asientos: readonly Asiento[],
@@ -36,14 +36,14 @@ export async function contabilizarLiquidacionIva(
   if (!b) throw new Error('No hay IVA pendiente de liquidar hasta ese trimestre.')
   comprobar(b, cuentas, anio)
   await runTransaction(db, async (tx) => {
-    const ej = await leerEjercicioAbierto(tx, uid, anio)
-    crear(tx, uid, b, anio, ej.contadorAsientos + 1, 'liquidacion-iva', origenId)
-    tx.update(ejercicioRef(uid, anio), { contadorAsientos: ej.contadorAsientos + 1 })
+    const ej = await leerEjercicioAbierto(tx, eid, anio)
+    crear(tx, eid, b, anio, ej.contadorAsientos + 1, 'liquidacion-iva', origenId)
+    tx.update(ejercicioRef(eid, anio), { contadorAsientos: ej.contadorAsientos + 1 })
   })
 }
 
 export async function cerrarEjercicio(
-  uid: string,
+  eid: string,
   anio: number,
   opciones: { impuestoCent: number; activarSiguiente: boolean },
   datos: { asientos: readonly Asiento[]; cuentas: readonly Cuenta[] },
@@ -60,22 +60,22 @@ export async function cerrarEjercicio(
   // El ejercicio siguiente debe existir antes de la transacción: las reglas
   // comprueban su estado con el valor previo a la escritura.
   const siguiente = anio + 1
-  const snap = await getDoc(ejercicioRef(uid, siguiente))
-  if (!snap.exists()) await abrirEjercicio(uid, siguiente)
+  const snap = await getDoc(ejercicioRef(eid, siguiente))
+  if (!snap.exists()) await abrirEjercicio(eid, siguiente)
   else if ((snap.data() as Ejercicio).estado !== 'abierto') throw new Error(`El ejercicio ${siguiente} está cerrado.`)
 
   const origenId = origenIdCierre(anio)
   await runTransaction(db, async (tx) => {
-    const ej = await leerEjercicioAbierto(tx, uid, anio)
-    const ejSig = await leerEjercicioAbierto(tx, uid, siguiente)
+    const ej = await leerEjercicioAbierto(tx, eid, anio)
+    const ejSig = await leerEjercicioAbierto(tx, eid, siguiente)
     let numero = ej.contadorAsientos
-    if (c.impuesto) crear(tx, uid, c.impuesto, anio, ++numero, 'impuesto-sociedades', null)
-    if (c.regularizacion) crear(tx, uid, c.regularizacion, anio, ++numero, 'regularizacion', origenId)
-    crear(tx, uid, c.cierre!, anio, ++numero, 'cierre', origenId)
-    crear(tx, uid, c.apertura!, siguiente, ejSig.contadorAsientos + 1, 'apertura', origenId)
-    tx.update(ejercicioRef(uid, anio), { contadorAsientos: numero, estado: 'cerrado' })
-    tx.update(ejercicioRef(uid, siguiente), { contadorAsientos: ejSig.contadorAsientos + 1 })
-    if (opciones.activarSiguiente) tx.update(empresaRef(uid), { ejercicioActivo: siguiente })
+    if (c.impuesto) crear(tx, eid, c.impuesto, anio, ++numero, 'impuesto-sociedades', null)
+    if (c.regularizacion) crear(tx, eid, c.regularizacion, anio, ++numero, 'regularizacion', origenId)
+    crear(tx, eid, c.cierre!, anio, ++numero, 'cierre', origenId)
+    crear(tx, eid, c.apertura!, siguiente, ejSig.contadorAsientos + 1, 'apertura', origenId)
+    tx.update(ejercicioRef(eid, anio), { contadorAsientos: numero, estado: 'cerrado' })
+    tx.update(ejercicioRef(eid, siguiente), { contadorAsientos: ejSig.contadorAsientos + 1 })
+    if (opciones.activarSiguiente) tx.update(empresaRef(eid), { ejercicioActivo: siguiente })
   })
 }
 
@@ -84,22 +84,22 @@ export async function cerrarEjercicio(
  * apertura del siguiente. Es idempotente: si se interrumpe, puede repetirse.
  * El asiento del impuesto se conserva (se puede borrar desde el diario).
  */
-export async function reabrirEjercicio(uid: string, anio: number) {
-  const ref = ejercicioRef(uid, anio)
+export async function reabrirEjercicio(eid: string, anio: number) {
+  const ref = ejercicioRef(eid, anio)
   const snap = await getDoc(ref)
   if (!snap.exists()) throw new Error(`El ejercicio ${anio} no existe.`)
   if ((snap.data() as Ejercicio).estado === 'cerrado') await updateDoc(ref, { estado: 'abierto' })
 
   const origenId = origenIdCierre(anio)
-  const generados = await getDocs(query(asientosCol(uid), where('origenId', '==', origenId)))
-  const delAnio = await getDocs(query(asientosCol(uid), where('ejercicio', '==', anio)))
+  const generados = await getDocs(query(asientosCol(eid), where('origenId', '==', origenId)))
+  const delAnio = await getDocs(query(asientosCol(eid), where('ejercicio', '==', anio)))
   const restantes = delAnio.docs.filter((d) => d.data().origenId !== origenId).map((d) => d.data().numero as number)
   await runTransaction(db, async (tx) => {
-    await leerEjercicioAbierto(tx, uid, anio)
+    await leerEjercicioAbierto(tx, eid, anio)
     const anios = new Set(generados.docs.map((d) => d.data().ejercicio as number))
-    for (const a of anios) if (a !== anio) await leerEjercicioAbierto(tx, uid, a)
-    for (const d of generados.docs) tx.delete(asientoRef(uid, d.id))
+    for (const a of anios) if (a !== anio) await leerEjercicioAbierto(tx, eid, a)
+    for (const d of generados.docs) tx.delete(asientoRef(eid, d.id))
     tx.update(ref, { contadorAsientos: Math.max(0, ...restantes) })
-    tx.update(empresaRef(uid), { ejercicioActivo: anio })
+    tx.update(empresaRef(eid), { ejercicioActivo: anio })
   })
 }

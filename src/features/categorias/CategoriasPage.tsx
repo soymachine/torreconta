@@ -8,7 +8,7 @@ import { reasignarCategoria } from '../../services/facturas'
 import { useLibros } from '../libros/LibrosProvider'
 
 function CategoriaForm({ categoria, onDone }: { categoria?: Categoria; onDone: () => void }) {
-  const { uid, cuentas } = useLibros()
+  const { eid, cuentas } = useLibros()
   const [nombre, setNombre] = useState(categoria?.nombre ?? '')
   const [color, setColor] = useState(categoria?.color ?? '#64748b')
   const [cuentaGasto, setCuentaGasto] = useState(categoria?.cuentaGasto ?? '')
@@ -19,10 +19,10 @@ function CategoriaForm({ categoria, onDone }: { categoria?: Categoria; onDone: (
     setError(null)
     if (nombre.trim().length < 2) return setError('Escribe un nombre.')
     try {
-      if (categoria) await actualizarCategoria(uid, categoria.id, { nombre: nombre.trim(), color })
+      if (categoria) await actualizarCategoria(eid, categoria.id, { nombre: nombre.trim(), color })
       else {
         if (!cuentas.some((c) => c.codigo === cuentaGasto)) return setError('Elige una cuenta de gasto existente (grupo 6).')
-        await crearCategoria(uid, { nombre: nombre.trim(), color, cuentaGasto, activa: true })
+        await crearCategoria(eid, { nombre: nombre.trim(), color, cuentaGasto, activa: true })
       }
       onDone()
     } catch (err) {
@@ -53,7 +53,7 @@ function CategoriaForm({ categoria, onDone }: { categoria?: Categoria; onDone: (
 }
 
 function FusionarForm({ origen, onDone }: { origen: Categoria; onDone: () => void }) {
-  const { uid, categorias, recibidas, cuentas } = useLibros()
+  const { eid, categorias, recibidas, cuentas } = useLibros()
   const [destinoId, setDestinoId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -64,8 +64,8 @@ function FusionarForm({ origen, onDone }: { origen: Categoria; onDone: () => voi
     if (!destino) return setError('Elige la categoría de destino.')
     setSaving(true)
     try {
-      await reasignarCategoria(uid, afectadas, destino, cuentas)
-      await actualizarCategoria(uid, origen.id, { activa: false })
+      await reasignarCategoria(eid, afectadas, destino, cuentas)
+      await actualizarCategoria(eid, origen.id, { activa: false })
       onDone()
     } catch (err) {
       setError(errorMsg(err))
@@ -97,7 +97,7 @@ function FusionarForm({ origen, onDone }: { origen: Categoria; onDone: () => voi
 }
 
 export function CategoriasPage() {
-  const { uid, anio, categorias, recibidas, cuentas } = useLibros()
+  const { eid, anio, categorias, recibidas, cuentas } = useLibros()
   const [modal, setModal] = useState<{ tipo: 'nueva' } | { tipo: 'editar' | 'fusionar'; c: Categoria } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const gasto = useMemo(
@@ -119,7 +119,7 @@ export function CategoriasPage() {
             No hay categorías.{' '}
             <button
               className="font-medium underline"
-              onClick={() => crearCategoriasPredeterminadas(uid).catch((e) => setError(errorMsg(e)))}
+              onClick={() => crearCategoriasPredeterminadas(eid).catch((e) => setError(errorMsg(e)))}
             >
               Crear las categorías predeterminadas
             </button>
@@ -150,7 +150,7 @@ export function CategoriasPage() {
                 <td className={tdNum}><Euros cents={gasto.get(c.id)?.importeCent ?? 0} muted /></td>
                 <td className={`${td} whitespace-nowrap text-right`}>
                   <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'editar', c })}>Editar</Button>
-                  <Button variant="ghost" className="px-2 py-1" onClick={() => actualizarCategoria(uid, c.id, { activa: !c.activa }).catch((e) => setError(errorMsg(e)))}>
+                  <Button variant="ghost" className="px-2 py-1" onClick={() => actualizarCategoria(eid, c.id, { activa: !c.activa }).catch((e) => setError(errorMsg(e)))}>
                     {c.activa ? 'Desactivar' : 'Activar'}
                   </Button>
                   {c.activa && <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'fusionar', c })}>Fusionar…</Button>}

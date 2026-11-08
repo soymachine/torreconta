@@ -20,9 +20,9 @@ export interface Empresa {
 
 export type DatosEmpresa = Omit<Empresa, 'ejercicioActivo' | 'cuentaBanco' | 'cuentaCaja'>
 
-export function suscribirEmpresa(uid: string, cb: (e: Empresa | null) => void, onError: (e: Error) => void) {
+export function suscribirEmpresa(eid: string, cb: (e: Empresa | null) => void, onError: (e: Error) => void) {
   return onSnapshot(
-    empresaRef(uid),
+    empresaRef(eid),
     (snap) => cb(snap.exists() ? (snap.data() as Empresa) : null),
     onError,
   )
@@ -33,17 +33,17 @@ export function suscribirEmpresa(uid: string, cb: (e: Empresa | null) => void, o
  * abierto y categorías de gasto predeterminadas. Se hace en un único batch
  * (unas 150 escrituras, límite 500).
  */
-export async function inicializarEmpresa(uid: string, datos: DatosEmpresa, anio: number) {
-  const existing = await getDoc(empresaRef(uid))
+export async function inicializarEmpresa(eid: string, datos: DatosEmpresa, anio: number) {
+  const existing = await getDoc(empresaRef(eid))
   if (existing.exists()) throw new Error('La empresa ya está configurada.')
 
   const batch = writeBatch(db)
   for (const c of PGC_PYMES) {
-    batch.set(cuentaRef(uid, c.codigo), { ...c, activa: true })
+    batch.set(cuentaRef(eid, c.codigo), { ...c, activa: true })
   }
-  batch.set(ejercicioRef(uid, anio), { anio, estado: 'abierto', contadorAsientos: 0, contadorFacturas: 0 })
-  sembrarCategorias(batch, uid)
-  batch.set(empresaRef(uid), {
+  batch.set(ejercicioRef(eid, anio), { anio, estado: 'abierto', contadorAsientos: 0, contadorFacturas: 0 })
+  sembrarCategorias(batch, eid)
+  batch.set(empresaRef(eid), {
     ...datos,
     ejercicioActivo: anio,
     cuentaBanco: '572',
@@ -53,7 +53,7 @@ export async function inicializarEmpresa(uid: string, datos: DatosEmpresa, anio:
   await batch.commit()
 }
 
-export async function actualizarEmpresa(uid: string, datos: Partial<DatosEmpresa>) {
-  await updateDoc(empresaRef(uid), datos)
+export async function actualizarEmpresa(eid: string, datos: Partial<DatosEmpresa>) {
+  await updateDoc(empresaRef(eid), datos)
 }
 

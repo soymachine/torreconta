@@ -16,7 +16,7 @@ interface FilaEdit {
 const filaVacia = (): FilaEdit => ({ cuenta: '', debe: '', haber: '', concepto: '' })
 
 export function AsientoForm({ asiento, fechaInicial, onDone }: { asiento?: Asiento; fechaInicial: string; onDone: () => void }) {
-  const { uid, anio, cuentas } = useLibros()
+  const { eid, anio, cuentas } = useLibros()
   const [fecha, setFecha] = useState(asiento?.fecha ?? fechaInicial)
   const [concepto, setConcepto] = useState(asiento?.concepto ?? '')
   const [filas, setFilas] = useState<FilaEdit[]>(
@@ -58,8 +58,8 @@ export function AsientoForm({ asiento, fechaInicial, onDone }: { asiento?: Asien
     if (errs.length) return setErrores(errs)
     setSaving(true)
     try {
-      if (asiento) await actualizarAsientoManual(uid, asiento, borrador, cuentas)
-      else await crearAsientoManual(uid, anio, borrador, cuentas)
+      if (asiento) await actualizarAsientoManual(eid, asiento, borrador, cuentas)
+      else await crearAsientoManual(eid, anio, borrador, cuentas)
       onDone()
     } catch (err) {
       setErrores([errorMsg(err)])

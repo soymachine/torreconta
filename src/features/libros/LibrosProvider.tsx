@@ -1,6 +1,6 @@
 import { onSnapshot, query, where, type Query } from 'firebase/firestore'
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useUid } from '../../auth/AuthProvider'
+import { useEmpresaId } from '../../auth/AuthProvider'
 import { Alert, Spinner } from '../../components/ui'
 import type { Asiento } from '../../lib/asientos'
 import { compararCodigos, type Cuenta } from '../../lib/cuentas'
@@ -18,7 +18,7 @@ import {
 import { useEmpresa } from '../empresa/EmpresaProvider'
 
 export interface Libros {
-  uid: string
+  eid: string
   empresa: Empresa
   anio: number
   ejercicio: Ejercicio | undefined
@@ -34,7 +34,7 @@ export interface Libros {
   recibidasAnteriores: FacturaRecibida[]
 }
 
-type Colecciones = Omit<Libros, 'uid' | 'empresa' | 'anio' | 'ejercicio'>
+type Colecciones = Omit<Libros, 'eid' | 'empresa' | 'anio' | 'ejercicio'>
 const CLAVES: (keyof Colecciones)[] = [
   'ejercicios',
   'cuentas',
@@ -55,7 +55,7 @@ const LibrosContext = createContext<Libros | null>(null)
  * partir de aquí, sin más lecturas a Firestore.
  */
 export function LibrosProvider({ children }: { children: ReactNode }) {
-  const uid = useUid()
+  const eid = useEmpresaId()
   const empresa = useEmpresa()
   const anio = empresa.ejercicioActivo
   const [datos, setDatos] = useState<Partial<Colecciones>>({})
@@ -65,15 +65,15 @@ export function LibrosProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const delAnio = (q: Query, a = anio) => query(q, where('ejercicio', '==', a))
     const fuentes: [keyof Colecciones, Query, boolean][] = [
-      ['ejercicios', ejerciciosCol(uid), false],
-      ['cuentas', cuentasCol(uid), false],
-      ['terceros', tercerosCol(uid), true],
-      ['categorias', categoriasCol(uid), true],
-      ['asientos', delAnio(asientosCol(uid)), true],
-      ['emitidas', delAnio(emitidasCol(uid)), true],
-      ['recibidas', delAnio(recibidasCol(uid)), true],
-      ['emitidasAnteriores', delAnio(emitidasCol(uid), anio - 1), true],
-      ['recibidasAnteriores', delAnio(recibidasCol(uid), anio - 1), true],
+      ['ejercicios', ejerciciosCol(eid), false],
+      ['cuentas', cuentasCol(eid), false],
+      ['terceros', tercerosCol(eid), true],
+      ['categorias', categoriasCol(eid), true],
+      ['asientos', delAnio(asientosCol(eid)), true],
+      ['emitidas', delAnio(emitidasCol(eid)), true],
+      ['recibidas', delAnio(recibidasCol(eid)), true],
+      ['emitidasAnteriores', delAnio(emitidasCol(eid), anio - 1), true],
+      ['recibidasAnteriores', delAnio(recibidasCol(eid), anio - 1), true],
     ]
     const unsubs = fuentes.map(([clave, q, conId]) =>
       onSnapshot(
@@ -86,14 +86,14 @@ export function LibrosProvider({ children }: { children: ReactNode }) {
       ),
     )
     return () => unsubs.forEach((u) => u())
-  }, [uid, anio])
+  }, [eid, anio])
 
   const value = useMemo<Libros | null>(() => {
     if (CLAVES.some((k) => datos[k] === undefined)) return null
     const d = datos as Colecciones
     return {
       ...d,
-      uid,
+      eid,
       empresa,
       anio,
       cuentas: [...d.cuentas].sort((a, b) => compararCodigos(a.codigo, b.codigo)),
@@ -104,7 +104,7 @@ export function LibrosProvider({ children }: { children: ReactNode }) {
       emitidasAnteriores: d.emitidasAnteriores.filter((f) => f.estado === 'pendiente' || f.cobro?.fecha.startsWith(`${anio}-`)),
       recibidasAnteriores: d.recibidasAnteriores.filter((f) => f.estado === 'pendiente' || f.pago?.fecha.startsWith(`${anio}-`)),
     }
-  }, [datos, uid, empresa, anio])
+  }, [datos, eid, empresa, anio])
 
   if (error) return <div className="p-8"><Alert>No se han podido cargar los datos: {error.message}</Alert></div>
   if (!value) return <Spinner />

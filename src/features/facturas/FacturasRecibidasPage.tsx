@@ -13,7 +13,7 @@ import { TesoreriaForm } from './TesoreriaForm'
 type ModalState = { tipo: 'nueva' | 'reasignar' } | { tipo: 'editar' | 'pagar'; f: FacturaRecibida } | null
 
 export function FacturasRecibidasPage() {
-  const { uid, anio, recibidas, recibidasAnteriores, categorias, cuentas, ejercicio } = useLibros()
+  const { eid, anio, recibidas, recibidasAnteriores, categorias, cuentas, ejercicio } = useLibros()
   const [params, setParams] = useSearchParams()
   const [modal, setModal] = useState<ModalState>(null)
   const [estado, setEstado] = useState<'' | 'pendiente' | 'pagada'>('')
@@ -64,7 +64,7 @@ export function FacturasRecibidasPage() {
     const cat = catPorId.get(destino)
     if (!cat) return
     await accion(async () => {
-      await reasignarCategoria(uid, seleccionadas, cat, cuentas)
+      await reasignarCategoria(eid, seleccionadas, cat, cuentas)
       setSeleccion(new Set())
       setModal(null)
     })
@@ -156,13 +156,13 @@ export function FacturasRecibidasPage() {
                         <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'pagar', f })}>Pagar</Button>
                         {abierto && f.ejercicio === anio && <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'editar', f })}>Editar</Button>}
                         {abierto && f.ejercicio === anio && (
-                          <Button variant="ghost" className="px-2 py-1 text-red-700" onClick={() => confirm(`¿Borrar la factura ${f.numero}?`) && accion(() => borrarFacturaRecibida(uid, f))}>
+                          <Button variant="ghost" className="px-2 py-1 text-red-700" onClick={() => confirm(`¿Borrar la factura ${f.numero}?`) && accion(() => borrarFacturaRecibida(eid, f))}>
                             Borrar
                           </Button>
                         )}
                       </>
                     ) : (
-                      <Button variant="ghost" className="px-2 py-1" onClick={() => confirm('¿Deshacer el pago? Se borrará su asiento.') && accion(() => deshacerPago(uid, f))}>
+                      <Button variant="ghost" className="px-2 py-1" onClick={() => confirm('¿Deshacer el pago? Se borrará su asiento.') && accion(() => deshacerPago(eid, f))}>
                         Deshacer pago
                       </Button>
                     )}

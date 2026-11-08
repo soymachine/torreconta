@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { useUid } from '../../auth/AuthProvider'
+import { useEmpresaId } from '../../auth/AuthProvider'
 import { Alert, Card, Field, Input } from '../../components/ui'
 import { inicializarEmpresa } from '../../services/empresa'
 import { EmpresaForm } from './EmpresaForm'
 
 /** Primer acceso: datos de la empresa y carga del plan de cuentas. */
 export function SetupPage() {
-  const uid = useUid()
+  const eid = useEmpresaId()
   const [anio, setAnio] = useState(() => new Date().getFullYear())
   const [error, setError] = useState<string | null>(null)
 
@@ -52,7 +52,7 @@ export function SetupPage() {
               return
             }
             try {
-              await inicializarEmpresa(uid, datos, anio)
+              await inicializarEmpresa(eid, datos, anio)
             } catch (e) {
               setError(e instanceof Error ? e.message : 'No se ha podido crear la empresa.')
             }

@@ -8,7 +8,7 @@ type AuthState =
   | { status: 'cargando' }
   | { status: 'anonimo' }
   | { status: 'no-autorizado'; user: User }
-  | { status: 'autorizado'; user: User }
+  | { status: 'autorizado'; user: User; empresaId: string }
 
 const AuthContext = createContext<AuthState>({ status: 'cargando' })
 
@@ -24,9 +24,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         setState({ status: 'cargando' })
         try {
-          // Solo los UID dados de alta en /autorizados/{uid} pueden usar la app.
+          // Solo los UID dados de alta en /autorizados/{uid} pueden usar la app;
+          // el documento indica a qué empresa (contabilidad compartida) acceden.
           const snap = await getDoc(autorizadoRef(user.uid))
-          setState(snap.exists() ? { status: 'autorizado', user } : { status: 'no-autorizado', user })
+          const empresaId = snap.exists() ? snap.data().empresaId : undefined
+          setState(
+            typeof empresaId === 'string' && empresaId
+              ? { status: 'autorizado', user, empresaId }
+              : { status: 'no-autorizado', user },
+          )
         } catch {
           setState({ status: 'no-autorizado', user })
         }
@@ -41,11 +47,11 @@ export function useAuth() {
   return useContext(AuthContext)
 }
 
-/** UID del usuario autorizado. Solo usar dentro de rutas protegidas. */
-export function useUid(): string {
+/** Empresa a la que accede el usuario autorizado. Solo dentro de rutas protegidas. */
+export function useEmpresaId(): string {
   const state = useAuth()
-  if (state.status !== 'autorizado') throw new Error('useUid fuera de una ruta protegida')
-  return state.user.uid
+  if (state.status !== 'autorizado') throw new Error('useEmpresaId fuera de una ruta protegida')
+  return state.empresaId
 }
 
 export function cerrarSesion() {

@@ -13,7 +13,7 @@ import { TesoreriaForm } from './TesoreriaForm'
 type ModalState = { tipo: 'nueva' } | { tipo: 'editar' | 'cobrar'; f: FacturaEmitida } | null
 
 export function FacturasEmitidasPage() {
-  const { uid, anio, emitidas, emitidasAnteriores, ejercicio } = useLibros()
+  const { eid, anio, emitidas, emitidasAnteriores, ejercicio } = useLibros()
   const [params, setParams] = useSearchParams()
   const [modal, setModal] = useState<ModalState>(null)
   const [estado, setEstado] = useState<'' | 'pendiente' | 'cobrada'>('')
@@ -105,13 +105,13 @@ export function FacturasEmitidasPage() {
                       <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'cobrar', f })}>Cobrar</Button>
                       {abierto && f.ejercicio === anio && <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'editar', f })}>Editar</Button>}
                       {abierto && f.ejercicio === anio && (
-                        <Button variant="ghost" className="px-2 py-1 text-red-700" onClick={() => confirm(`¿Borrar la factura ${f.numero}?`) && accion(() => borrarFacturaEmitida(uid, f))}>
+                        <Button variant="ghost" className="px-2 py-1 text-red-700" onClick={() => confirm(`¿Borrar la factura ${f.numero}?`) && accion(() => borrarFacturaEmitida(eid, f))}>
                           Borrar
                         </Button>
                       )}
                     </>
                   ) : (
-                    <Button variant="ghost" className="px-2 py-1" onClick={() => confirm('¿Deshacer el cobro? Se borrará su asiento.') && accion(() => deshacerCobro(uid, f))}>
+                    <Button variant="ghost" className="px-2 py-1" onClick={() => confirm('¿Deshacer el cobro? Se borrará su asiento.') && accion(() => deshacerCobro(eid, f))}>
                       Deshacer cobro
                     </Button>
                   )}

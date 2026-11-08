@@ -12,7 +12,7 @@ type Props =
 
 /** Registra el cobro de una factura emitida o el pago de una recibida. */
 export function TesoreriaForm(props: Props) {
-  const { uid, anio, empresa, cuentas, ejercicios } = useLibros()
+  const { eid, anio, empresa, cuentas, ejercicios } = useLibros()
   const { factura, tipo, onDone } = props
   const hoy = hoyEn(anio)
   const [fecha, setFecha] = useState(hoy < factura.fecha ? factura.fecha : hoy)
@@ -31,8 +31,8 @@ export function TesoreriaForm(props: Props) {
       return setError(`No hay ningún ejercicio abierto para ${fecha.slice(0, 4)}. Ábrelo desde «Empresa».`)
     setSaving(true)
     try {
-      if (props.tipo === 'cobro') await registrarCobro(uid, props.factura, { fecha, cuenta }, cuentas)
-      else await registrarPago(uid, props.factura, { fecha, cuenta }, cuentas)
+      if (props.tipo === 'cobro') await registrarCobro(eid, props.factura, { fecha, cuenta }, cuentas)
+      else await registrarPago(eid, props.factura, { fecha, cuenta }, cuentas)
       onDone()
     } catch (err) {
       setError(errorMsg(err))

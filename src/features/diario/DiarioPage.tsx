@@ -16,7 +16,7 @@ export function enlaceOrigen(a: Asiento): string | null {
 }
 
 export function DiarioPage() {
-  const { uid, anio, asientos, cuentas, ejercicio } = useLibros()
+  const { eid, anio, asientos, cuentas, ejercicio } = useLibros()
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [texto, setTexto] = useState('')
@@ -41,7 +41,7 @@ export function DiarioPage() {
   const renumerar = async () => {
     setError(null)
     try {
-      await renumerarAsientos(uid, anio, asientos)
+      await renumerarAsientos(eid, anio, asientos)
     } catch (e) {
       setError(errorMsg(e))
     }
@@ -57,7 +57,7 @@ export function DiarioPage() {
   const borrar = async (a: Asiento) => {
     if (!confirm(`¿Borrar el asiento ${a.numero}? Su número quedará libre.`)) return
     try {
-      await borrarAsientoManual(uid, a)
+      await borrarAsientoManual(eid, a)
     } catch (e) {
       setError(errorMsg(e))
     }

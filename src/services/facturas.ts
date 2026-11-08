@@ -37,14 +37,14 @@ function camposAsiento(b: BorradorAsiento) {
 
 async function crearAsientoEnTx(
   tx: Transaction,
-  uid: string,
+  eid: string,
   anio: number,
   contadorActual: number,
   b: BorradorAsiento,
   origen: OrigenAsiento,
   origenId: string,
 ): Promise<DocumentReference> {
-  const ref = nuevoId(asientosCol(uid))
+  const ref = nuevoId(asientosCol(eid))
   tx.set(ref, aAsientoData(b, { ejercicio: anio, numero: contadorActual + 1, origen, origenId }))
   return ref
 }
@@ -73,7 +73,7 @@ export interface EntradaFacturaEmitida {
 }
 
 export async function guardarFacturaEmitida(
-  uid: string,
+  eid: string,
   ctx: { serie: string; anio: number; cuentas: readonly Cuenta[] },
   e: EntradaFacturaEmitida,
   existente?: FacturaEmitida,
@@ -86,7 +86,7 @@ export async function guardarFacturaEmitida(
   if (calculo.totalCent === 0 && calculo.baseCent === 0) throw new Error('La factura no tiene importe.')
 
   return runTransaction(db, async (tx) => {
-    const ej = await leerEjercicioAbierto(tx, uid, anio)
+    const ej = await leerEjercicioAbierto(tx, eid, anio)
     const secuencia = existente?.secuencia ?? (ej.contadorFacturas ?? 0) + 1
     const numero = existente?.numero ?? numeroFactura(ctx.serie, anio, secuencia)
     const borrador = asientoFacturaEmitida({
@@ -99,14 +99,14 @@ export async function guardarFacturaEmitida(
     })
     comprobar(borrador, ctx.cuentas, anio)
 
-    const facturaRef = existente ? emitidaRef(uid, existente.id) : nuevoId(emitidasCol(uid))
+    const facturaRef = existente ? emitidaRef(eid, existente.id) : nuevoId(emitidasCol(eid))
     let asientoId = existente?.asientoId
     if (existente) {
-      tx.update(asientoRef(uid, existente.asientoId), camposAsiento(borrador))
+      tx.update(asientoRef(eid, existente.asientoId), camposAsiento(borrador))
     } else {
-      const ref = await crearAsientoEnTx(tx, uid, anio, ej.contadorAsientos, borrador, 'factura-emitida', facturaRef.id)
+      const ref = await crearAsientoEnTx(tx, eid, anio, ej.contadorAsientos, borrador, 'factura-emitida', facturaRef.id)
       asientoId = ref.id
-      tx.update(ejercicioRef(uid, anio), { contadorAsientos: ej.contadorAsientos + 1, contadorFacturas: secuencia })
+      tx.update(ejercicioRef(eid, anio), { contadorAsientos: ej.contadorAsientos + 1, contadorFacturas: secuencia })
     }
     const factura: Omit<FacturaEmitida, 'id'> = {
       ejercicio: anio,
@@ -127,15 +127,15 @@ export async function guardarFacturaEmitida(
 }
 
 /** Solo se puede borrar la última factura de la serie, para no dejar huecos. */
-export async function borrarFacturaEmitida(uid: string, f: FacturaEmitida) {
+export async function borrarFacturaEmitida(eid: string, f: FacturaEmitida) {
   if (f.estado !== 'pendiente') throw new Error('Deshaz el cobro antes de borrar la factura.')
   await runTransaction(db, async (tx) => {
-    const ej = await leerEjercicioAbierto(tx, uid, f.ejercicio)
+    const ej = await leerEjercicioAbierto(tx, eid, f.ejercicio)
     if (f.secuencia !== ej.contadorFacturas)
       throw new Error('Solo se puede borrar la última factura emitida. Para anular otra, emite una rectificativa.')
-    tx.delete(asientoRef(uid, f.asientoId))
-    tx.delete(emitidaRef(uid, f.id))
-    tx.update(ejercicioRef(uid, f.ejercicio), { contadorFacturas: f.secuencia - 1 })
+    tx.delete(asientoRef(eid, f.asientoId))
+    tx.delete(emitidaRef(eid, f.id))
+    tx.update(ejercicioRef(eid, f.ejercicio), { contadorFacturas: f.secuencia - 1 })
   })
 }
 
@@ -156,7 +156,7 @@ function borradorRecibida(f: Pick<FacturaRecibida, 'fecha' | 'numero' | 'tercero
 }
 
 export async function guardarFacturaRecibida(
-  uid: string,
+  eid: string,
   ctx: { anio: number; cuentas: readonly Cuenta[] },
   e: EntradaFacturaRecibida,
   existente?: FacturaRecibida,
@@ -181,15 +181,15 @@ export async function guardarFacturaRecibida(
   comprobar(borrador, ctx.cuentas, anio)
 
   return runTransaction(db, async (tx) => {
-    const ej = await leerEjercicioAbierto(tx, uid, anio)
-    const facturaRef = existente ? recibidaRef(uid, existente.id) : nuevoId(recibidasCol(uid))
+    const ej = await leerEjercicioAbierto(tx, eid, anio)
+    const facturaRef = existente ? recibidaRef(eid, existente.id) : nuevoId(recibidasCol(eid))
     let asientoId = existente?.asientoId
     if (existente) {
-      tx.update(asientoRef(uid, existente.asientoId), camposAsiento(borrador))
+      tx.update(asientoRef(eid, existente.asientoId), camposAsiento(borrador))
     } else {
-      const ref = await crearAsientoEnTx(tx, uid, anio, ej.contadorAsientos, borrador, 'factura-recibida', facturaRef.id)
+      const ref = await crearAsientoEnTx(tx, eid, anio, ej.contadorAsientos, borrador, 'factura-recibida', facturaRef.id)
       asientoId = ref.id
-      tx.update(ejercicioRef(uid, anio), { contadorAsientos: ej.contadorAsientos + 1 })
+      tx.update(ejercicioRef(eid, anio), { contadorAsientos: ej.contadorAsientos + 1 })
     }
     const factura: Omit<FacturaRecibida, 'id'> = {
       ejercicio: anio,
@@ -209,12 +209,12 @@ export async function guardarFacturaRecibida(
   })
 }
 
-export async function borrarFacturaRecibida(uid: string, f: FacturaRecibida) {
+export async function borrarFacturaRecibida(eid: string, f: FacturaRecibida) {
   if (f.estado !== 'pendiente') throw new Error('Deshaz el pago antes de borrar la factura.')
   await runTransaction(db, async (tx) => {
-    await leerEjercicioAbierto(tx, uid, f.ejercicio)
-    tx.delete(asientoRef(uid, f.asientoId))
-    tx.delete(recibidaRef(uid, f.id))
+    await leerEjercicioAbierto(tx, eid, f.ejercicio)
+    tx.delete(asientoRef(eid, f.asientoId))
+    tx.delete(recibidaRef(eid, f.id))
   })
 }
 
@@ -223,7 +223,7 @@ export async function borrarFacturaRecibida(uid: string, f: FacturaRecibida) {
  * para que el gasto pase a la cuenta 6xx de la nueva categoría.
  */
 export async function reasignarCategoria(
-  uid: string,
+  eid: string,
   facturas: readonly FacturaRecibida[],
   categoria: Categoria,
   cuentas: readonly Cuenta[],
@@ -234,8 +234,8 @@ export async function reasignarCategoria(
     for (const f of pendientes.slice(i, i + 200)) {
       const borrador = borradorRecibida({ ...f, calculo: f }, categoria)
       comprobar(borrador, cuentas, f.ejercicio)
-      batch.update(recibidaRef(uid, f.id), { categoriaId: categoria.id })
-      batch.update(asientoRef(uid, f.asientoId), camposAsiento(borrador))
+      batch.update(recibidaRef(eid, f.id), { categoriaId: categoria.id })
+      batch.update(asientoRef(eid, f.asientoId), camposAsiento(borrador))
     }
     await batch.commit()
   }
@@ -248,7 +248,7 @@ export interface DatosTesoreria {
   cuenta: string // 572 o 570 (o subcuentas)
 }
 
-export async function registrarCobro(uid: string, f: FacturaEmitida, t: DatosTesoreria, cuentas: readonly Cuenta[]) {
+export async function registrarCobro(eid: string, f: FacturaEmitida, t: DatosTesoreria, cuentas: readonly Cuenta[]) {
   const anio = anioDe(t.fecha)
   const borrador = asientoCobro({
     fecha: t.fecha,
@@ -261,26 +261,26 @@ export async function registrarCobro(uid: string, f: FacturaEmitida, t: DatosTes
   comprobar(borrador, cuentas, anio)
   if (t.fecha < f.fecha) throw new Error('El cobro no puede ser anterior a la factura.')
   await runTransaction(db, async (tx) => {
-    const ej = await leerEjercicioAbierto(tx, uid, anio)
-    const actual = await tx.get(emitidaRef(uid, f.id))
+    const ej = await leerEjercicioAbierto(tx, eid, anio)
+    const actual = await tx.get(emitidaRef(eid, f.id))
     if (actual.data()?.estado !== 'pendiente') throw new Error('La factura ya está cobrada.')
-    const ref = await crearAsientoEnTx(tx, uid, anio, ej.contadorAsientos, borrador, 'cobro', f.id)
-    tx.update(ejercicioRef(uid, anio), { contadorAsientos: ej.contadorAsientos + 1 })
-    tx.update(emitidaRef(uid, f.id), { estado: 'cobrada', cobro: { ...t, asientoId: ref.id } })
+    const ref = await crearAsientoEnTx(tx, eid, anio, ej.contadorAsientos, borrador, 'cobro', f.id)
+    tx.update(ejercicioRef(eid, anio), { contadorAsientos: ej.contadorAsientos + 1 })
+    tx.update(emitidaRef(eid, f.id), { estado: 'cobrada', cobro: { ...t, asientoId: ref.id } })
   })
 }
 
-export async function deshacerCobro(uid: string, f: FacturaEmitida) {
+export async function deshacerCobro(eid: string, f: FacturaEmitida) {
   if (!f.cobro) return
   const cobro = f.cobro
   await runTransaction(db, async (tx) => {
-    await leerEjercicioAbierto(tx, uid, anioDe(cobro.fecha))
-    tx.delete(asientoRef(uid, cobro.asientoId))
-    tx.update(emitidaRef(uid, f.id), { estado: 'pendiente', cobro: null })
+    await leerEjercicioAbierto(tx, eid, anioDe(cobro.fecha))
+    tx.delete(asientoRef(eid, cobro.asientoId))
+    tx.update(emitidaRef(eid, f.id), { estado: 'pendiente', cobro: null })
   })
 }
 
-export async function registrarPago(uid: string, f: FacturaRecibida, t: DatosTesoreria, cuentas: readonly Cuenta[]) {
+export async function registrarPago(eid: string, f: FacturaRecibida, t: DatosTesoreria, cuentas: readonly Cuenta[]) {
   const anio = anioDe(t.fecha)
   const borrador = asientoPago({
     fecha: t.fecha,
@@ -293,21 +293,21 @@ export async function registrarPago(uid: string, f: FacturaRecibida, t: DatosTes
   comprobar(borrador, cuentas, anio)
   if (t.fecha < f.fecha) throw new Error('El pago no puede ser anterior a la factura.')
   await runTransaction(db, async (tx) => {
-    const ej = await leerEjercicioAbierto(tx, uid, anio)
-    const actual = await tx.get(recibidaRef(uid, f.id))
+    const ej = await leerEjercicioAbierto(tx, eid, anio)
+    const actual = await tx.get(recibidaRef(eid, f.id))
     if (actual.data()?.estado !== 'pendiente') throw new Error('La factura ya está pagada.')
-    const ref = await crearAsientoEnTx(tx, uid, anio, ej.contadorAsientos, borrador, 'pago', f.id)
-    tx.update(ejercicioRef(uid, anio), { contadorAsientos: ej.contadorAsientos + 1 })
-    tx.update(recibidaRef(uid, f.id), { estado: 'pagada', pago: { ...t, asientoId: ref.id } })
+    const ref = await crearAsientoEnTx(tx, eid, anio, ej.contadorAsientos, borrador, 'pago', f.id)
+    tx.update(ejercicioRef(eid, anio), { contadorAsientos: ej.contadorAsientos + 1 })
+    tx.update(recibidaRef(eid, f.id), { estado: 'pagada', pago: { ...t, asientoId: ref.id } })
   })
 }
 
-export async function deshacerPago(uid: string, f: FacturaRecibida) {
+export async function deshacerPago(eid: string, f: FacturaRecibida) {
   if (!f.pago) return
   const pago = f.pago
   await runTransaction(db, async (tx) => {
-    await leerEjercicioAbierto(tx, uid, anioDe(pago.fecha))
-    tx.delete(asientoRef(uid, pago.asientoId))
-    tx.update(recibidaRef(uid, f.id), { estado: 'pendiente', pago: null })
+    await leerEjercicioAbierto(tx, eid, anioDe(pago.fecha))
+    tx.delete(asientoRef(eid, pago.asientoId))
+    tx.update(recibidaRef(eid, f.id), { estado: 'pendiente', pago: null })
   })
 }

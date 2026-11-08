@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useUid } from '../../auth/AuthProvider'
+import { useEmpresaId } from '../../auth/AuthProvider'
 import { Badge, errorMsg } from '../../components/shared'
 import { Alert, Button, Card } from '../../components/ui'
 import { abrirEjercicio, cambiarEjercicioActivo } from '../../services/ejercicios'
@@ -10,7 +10,7 @@ import { EmpresaForm } from './EmpresaForm'
 import { useEmpresa } from './EmpresaProvider'
 
 export function EmpresaPage() {
-  const uid = useUid()
+  const eid = useEmpresaId()
   const empresa = useEmpresa()
   const { ejercicios } = useLibros()
   const [msg, setMsg] = useState<{ tone: 'info' | 'error'; text: string } | null>(null)
@@ -31,7 +31,7 @@ export function EmpresaPage() {
           defaultValues={empresa}
           onSubmit={async (datos) => {
             try {
-              await actualizarEmpresa(uid, datos)
+              await actualizarEmpresa(eid, datos)
               setMsg({ tone: 'info', text: 'Datos guardados.' })
             } catch {
               setMsg({ tone: 'error', text: 'No se han podido guardar los datos.' })
@@ -61,7 +61,7 @@ export function EmpresaPage() {
                   <Badge tone="sky">Activo</Badge>
                 </span>
               ) : (
-                <Button variant="ghost" onClick={() => cambiarEjercicioActivo(uid, e.anio).catch((err) => setMsgEj(errorMsg(err)))}>
+                <Button variant="ghost" onClick={() => cambiarEjercicioActivo(eid, e.anio).catch((err) => setMsgEj(errorMsg(err)))}>
                   Activar
                 </Button>
               )}
@@ -75,7 +75,7 @@ export function EmpresaPage() {
           onClick={async () => {
             setMsgEj(null)
             try {
-              await abrirEjercicio(uid, siguiente)
+              await abrirEjercicio(eid, siguiente)
             } catch (err) {
               setMsgEj(errorMsg(err))
             }

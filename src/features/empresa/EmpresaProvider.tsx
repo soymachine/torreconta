@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { useUid } from '../../auth/AuthProvider'
+import { useEmpresaId } from '../../auth/AuthProvider'
 import { suscribirEmpresa, type Empresa } from '../../services/empresa'
 
 type EmpresaState =
@@ -11,17 +11,17 @@ type EmpresaState =
 const EmpresaContext = createContext<EmpresaState>({ status: 'cargando' })
 
 export function EmpresaProvider({ children }: { children: ReactNode }) {
-  const uid = useUid()
+  const eid = useEmpresaId()
   const [state, setState] = useState<EmpresaState>({ status: 'cargando' })
 
   useEffect(
     () =>
       suscribirEmpresa(
-        uid,
+        eid,
         (empresa) => setState(empresa ? { status: 'lista', empresa } : { status: 'sin-configurar' }),
         (error) => setState({ status: 'error', error }),
       ),
-    [uid],
+    [eid],
   )
 
   return <EmpresaContext.Provider value={state}>{children}</EmpresaContext.Provider>

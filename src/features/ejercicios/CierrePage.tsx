@@ -18,7 +18,7 @@ const ICONO: Record<NivelComprobacion, { simbolo: string; clase: string }> = {
 }
 
 function Reabrir({ anio }: { anio: number }) {
-  const { uid, asientos } = useLibros()
+  const { eid, asientos } = useLibros()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const generados = asientos.filter((a) => a.origenId === origenIdCierre(anio))
@@ -46,7 +46,7 @@ function Reabrir({ anio }: { anio: number }) {
           setSaving(true)
           setError(null)
           try {
-            await reabrirEjercicio(uid, anio)
+            await reabrirEjercicio(eid, anio)
           } catch (e) {
             setError(errorMsg(e))
           } finally {
@@ -61,7 +61,7 @@ function Reabrir({ anio }: { anio: number }) {
 }
 
 export function CierrePage() {
-  const { uid, anio, ejercicio, asientos, cuentas, emitidas, recibidas } = useLibros()
+  const { eid, anio, ejercicio, asientos, cuentas, emitidas, recibidas } = useLibros()
   const navigate = useNavigate()
   const resultadoAntes = useMemo(() => pyg(paraInformes(asientos), cuentas).resultado, [asientos, cuentas])
   const [impuestoTxt, setImpuestoTxt] = useState('')
@@ -105,7 +105,7 @@ export function CierrePage() {
     setError(null)
     setSaving(true)
     try {
-      await cerrarEjercicio(uid, anio, { impuestoCent: impuestoCent ?? 0, activarSiguiente }, { asientos, cuentas })
+      await cerrarEjercicio(eid, anio, { impuestoCent: impuestoCent ?? 0, activarSiguiente }, { asientos, cuentas })
       navigate(`/ejercicios/cierre/hecho?anio=${anio}`)
     } catch (e) {
       setError(errorMsg(e))
@@ -130,7 +130,7 @@ export function CierrePage() {
                 {c.texto}{' '}
                 {c.enlace && <Link to={c.enlace} className="font-medium underline">Ir</Link>}
                 {c.id === 'orden' && c.nivel === 'error' && (
-                  <button className="font-medium underline" onClick={() => renumerarAsientos(uid, anio, asientos).catch((e) => setError(errorMsg(e)))}>
+                  <button className="font-medium underline" onClick={() => renumerarAsientos(eid, anio, asientos).catch((e) => setError(errorMsg(e)))}>
                     Renumerar por fecha
                   </button>
                 )}

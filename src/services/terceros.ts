@@ -22,14 +22,14 @@ export function siguienteSubcuenta(tipo: TipoTercero, cuentas: readonly Pick<Cue
 
 export type DatosTercero = Omit<Tercero, 'id' | 'cuenta' | 'activo'>
 
-export async function crearTercero(uid: string, datos: DatosTercero, cuentas: readonly Cuenta[]): Promise<Tercero> {
+export async function crearTercero(eid: string, datos: DatosTercero, cuentas: readonly Cuenta[]): Promise<Tercero> {
   const codigo = siguienteSubcuenta(datos.tipo, cuentas)
-  const ref = nuevoId(tercerosCol(uid))
+  const ref = nuevoId(tercerosCol(eid))
   const tercero: Tercero = { ...datos, id: ref.id, cuenta: codigo, activo: true }
   await runTransaction(db, async (tx) => {
-    const existente = await tx.get(cuentaRef(uid, codigo))
+    const existente = await tx.get(cuentaRef(eid, codigo))
     if (existente.exists()) throw new Error(`La subcuenta ${codigo} ya existe. Inténtalo de nuevo.`)
-    tx.set(cuentaRef(uid, codigo), {
+    tx.set(cuentaRef(eid, codigo), {
       codigo,
       nombre: datos.nombre,
       naturaleza: CUENTA_TIPO[datos.tipo].naturaleza,
@@ -41,8 +41,8 @@ export async function crearTercero(uid: string, datos: DatosTercero, cuentas: re
   return tercero
 }
 
-export async function actualizarTercero(uid: string, tercero: Tercero, cambios: Partial<Omit<DatosTercero, 'tipo'>> & { activo?: boolean }) {
-  await updateDoc(terceroRef(uid, tercero.id), cambios)
+export async function actualizarTercero(eid: string, tercero: Tercero, cambios: Partial<Omit<DatosTercero, 'tipo'>> & { activo?: boolean }) {
+  await updateDoc(terceroRef(eid, tercero.id), cambios)
   if (cambios.nombre && cambios.nombre !== tercero.nombre)
-    await updateDoc(cuentaRef(uid, tercero.cuenta), { nombre: cambios.nombre })
+    await updateDoc(cuentaRef(eid, tercero.cuenta), { nombre: cambios.nombre })
 }

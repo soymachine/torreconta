@@ -23,7 +23,7 @@ export function TerceroForm({
   tiposPermitidos?: TipoTercero[]
   onDone: (t?: Tercero) => void
 }) {
-  const { uid, cuentas, categorias } = useLibros()
+  const { eid, cuentas, categorias } = useLibros()
   const [tipo, setTipo] = useState<TipoTercero>(tercero?.tipo ?? tipoInicial)
   const [nombre, setNombre] = useState(tercero?.nombre ?? '')
   const [nif, setNif] = useState(tercero?.nif ?? '')
@@ -52,10 +52,10 @@ export function TerceroForm({
     setSaving(true)
     try {
       if (tercero) {
-        await actualizarTercero(uid, tercero, datos)
+        await actualizarTercero(eid, tercero, datos)
         onDone({ ...tercero, ...datos })
       } else {
-        onDone(await crearTercero(uid, { ...datos, tipo }, cuentas))
+        onDone(await crearTercero(eid, { ...datos, tipo }, cuentas))
       }
     } catch (err) {
       setError(errorMsg(err))
