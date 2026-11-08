@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
+import { useConfirmar } from '@/components/Confirmar'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AsientoPreview } from '../../components/AsientoPreview'
 import { Badge, centsAInput, errorMsg, Euros, PageHeader } from '../../components/shared'
-import { Alert, Button, Card, Field, Input } from '../../components/ui'
+import { Alert, Button, Card, Field, Input } from '../../components/base'
 import { ORIGEN_LABEL } from '../../lib/asientos'
 import { calcularCierre, comprobacionesCierre, origenIdCierre, type NivelComprobacion } from '../../lib/cierre'
 import { parseEuros, percentOf } from '../../lib/money'
@@ -22,6 +25,7 @@ function Reabrir({ anio }: { anio: number }) {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const generados = asientos.filter((a) => a.origenId === origenIdCierre(anio))
+  const confirmar = useConfirmar()
   return (
     <Card className="max-w-3xl space-y-4">
       <p className="text-sm text-slate-600">
@@ -42,11 +46,18 @@ function Reabrir({ anio }: { anio: number }) {
         variant="danger"
         disabled={saving}
         onClick={async () => {
-          if (!confirm(`¿Reabrir el ejercicio ${anio}?`)) return
+          const ok = await confirmar({
+            titulo: `¿Reabrir el ejercicio ${anio}?`,
+            descripcion: `Se borrarán la regularización y el cierre de ${anio} y la apertura de ${anio + 1}.`,
+            accion: 'Reabrir',
+            destructiva: true,
+          })
+          if (!ok) return
           setSaving(true)
           setError(null)
           try {
             await reabrirEjercicio(eid, anio)
+            toast.success(`Ejercicio ${anio} reabierto`)
           } catch (e) {
             setError(errorMsg(e))
           } finally {
@@ -106,6 +117,7 @@ export function CierrePage() {
     setSaving(true)
     try {
       await cerrarEjercicio(eid, anio, { impuestoCent: impuestoCent ?? 0, activarSiguiente }, { asientos, cuentas })
+      toast.success(`Ejercicio ${anio} cerrado`)
       navigate(`/ejercicios/cierre/hecho?anio=${anio}`)
     } catch (e) {
       setError(errorMsg(e))
@@ -189,12 +201,12 @@ export function CierrePage() {
       <Card className="space-y-3">
         <h2 className="font-semibold">4. Confirmar</h2>
         <label className="flex items-start gap-2 text-sm">
-          <input type="checkbox" className="mt-1" checked={entendido} onChange={(e) => setEntendido(e.target.checked)} />
+          <Checkbox className="mt-0.5" checked={entendido} onCheckedChange={(v) => setEntendido(v === true)} />
           Entiendo que el ejercicio {anio} quedará bloqueado: no se podrán añadir ni modificar asientos ni facturas (salvo cobros
           y pagos, que se contabilizan en {anio + 1}). Podré reabrirlo si lo necesito.
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={activarSiguiente} onChange={(e) => setActivarSiguiente(e.target.checked)} />
+          <Checkbox checked={activarSiguiente} onCheckedChange={(v) => setActivarSiguiente(v === true)} />
           Pasar a trabajar en el ejercicio {anio + 1}
         </label>
         {error && <Alert>{error}</Alert>}

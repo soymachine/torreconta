@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useEmpresaId } from '../../auth/AuthProvider'
-import { Alert, Button, Card, Input, Select } from '../../components/ui'
+import { Alert, Button, Card, Input, Select } from '../../components/base'
 import { esImputable, GRUPOS, type Cuenta } from '../../lib/cuentas'
 import { actualizarCuenta } from '../../services/cuentas'
 import { NuevaSubcuenta } from './NuevaSubcuenta'
@@ -89,7 +90,7 @@ export function CuentasPage() {
           ))}
         </Select>
         <label className="flex items-center gap-2 text-sm text-slate-600">
-          <input type="checkbox" checked={verInactivas} onChange={(e) => setVerInactivas(e.target.checked)} />
+          <Checkbox checked={verInactivas} onCheckedChange={(v) => setVerInactivas(v === true)} />
           Mostrar inactivas
         </label>
       </div>

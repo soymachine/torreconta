@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useEmpresaId } from '../../auth/AuthProvider'
-import { Alert, Card, Field, Input } from '../../components/ui'
+import { Alert, Card, Field, Input } from '../../components/base'
 import { inicializarEmpresa } from '../../services/empresa'
 import { EmpresaForm } from './EmpresaForm'
 

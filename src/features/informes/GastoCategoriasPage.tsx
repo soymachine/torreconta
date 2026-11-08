@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Euros, PageHeader, TableWrap, td, tdNum, th, thNum } from '../../components/shared'
-import { Button, Select } from '../../components/ui'
+import { Button, Select } from '../../components/base'
 import { centsCsv, descargarCsv, toCsv } from '../../lib/csv'
 import { gastoPorCategoria, rangoTrimestre, type Trimestre } from '../../lib/iva'
 import { useLibros } from '../libros/LibrosProvider'

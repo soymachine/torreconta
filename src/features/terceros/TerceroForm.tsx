@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
+import { toast } from 'sonner'
 import { errorMsg } from '../../components/shared'
-import { Alert, Button, Field, Input, Select } from '../../components/ui'
+import { Alert, Button, Field, Input, Select } from '../../components/base'
 import { isValidNif, normalizeNif } from '../../lib/nif'
 import type { Tercero, TipoTercero } from '../../lib/tipos'
 import { actualizarTercero, crearTercero } from '../../services/terceros'
@@ -55,7 +56,9 @@ export function TerceroForm({
         await actualizarTercero(eid, tercero, datos)
         onDone({ ...tercero, ...datos })
       } else {
-        onDone(await crearTercero(eid, { ...datos, tipo }, cuentas))
+        const nuevo = await crearTercero(eid, { ...datos, tipo }, cuentas)
+        toast.success(`${nuevo.nombre} creado con la subcuenta ${nuevo.cuenta}`)
+        onDone(nuevo)
       }
     } catch (err) {
       setError(errorMsg(err))

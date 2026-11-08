@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { Euros, formatFecha, PageHeader, TableWrap, td, tdNum, th, thNum } from '../../components/shared'
-import { Button, Card, Select } from '../../components/ui'
+import { Button, Card, Select } from '../../components/base'
 import { centsCsv, descargarCsv, toCsv } from '../../lib/csv'
 import { asientoLiquidacionIva, modelo303, origenIdLiquidacion, trimestreActual, type Trimestre } from '../../lib/iva'
 import { AsientoPreview } from '../../components/AsientoPreview'
 import type { BorradorAsiento } from '../../lib/asientos'
 import { errorMsg } from '../../components/shared'
-import { Alert } from '../../components/ui'
+import { Alert } from '../../components/base'
 import { contabilizarLiquidacionIva } from '../../services/cierre'
 import { useLibros } from '../libros/LibrosProvider'
 
@@ -31,6 +32,7 @@ export function IvaPage() {
     try {
       await contabilizarLiquidacionIva(eid, anio, t, asientos, cuentas)
       setVerLiq(false)
+      toast.success(`Liquidación del ${t}T contabilizada`)
     } catch (e) {
       setErrorLiq(errorMsg(e))
     }

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
+import { toast } from 'sonner'
 import { errorMsg, Euros, hoyEn } from '../../components/shared'
-import { Alert, Button, Field, Input, Select } from '../../components/ui'
+import { Alert, Button, Field, Input, Select } from '../../components/base'
 import { esImputable } from '../../lib/cuentas'
 import type { FacturaEmitida, FacturaRecibida } from '../../lib/tipos'
 import { registrarCobro, registrarPago } from '../../services/facturas'
@@ -33,6 +34,7 @@ export function TesoreriaForm(props: Props) {
     try {
       if (props.tipo === 'cobro') await registrarCobro(eid, props.factura, { fecha, cuenta }, cuentas)
       else await registrarPago(eid, props.factura, { fecha, cuenta }, cuentas)
+      toast.success(`${props.tipo === 'cobro' ? 'Cobro' : 'Pago'} de la factura ${factura.numero} registrado`)
       onDone()
     } catch (err) {
       setError(errorMsg(err))

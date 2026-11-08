@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
 import { useEmpresaId } from '../../auth/AuthProvider'
 import { Badge, errorMsg } from '../../components/shared'
-import { Alert, Button, Card } from '../../components/ui'
+import { Alert, Button, Card } from '../../components/base'
 import { abrirEjercicio, cambiarEjercicioActivo } from '../../services/ejercicios'
 import { useLibros } from '../libros/LibrosProvider'
 import { actualizarEmpresa } from '../../services/empresa'
@@ -32,7 +33,8 @@ export function EmpresaPage() {
           onSubmit={async (datos) => {
             try {
               await actualizarEmpresa(eid, datos)
-              setMsg({ tone: 'info', text: 'Datos guardados.' })
+              setMsg(null)
+              toast.success('Datos de la empresa guardados')
             } catch {
               setMsg({ tone: 'error', text: 'No se han podido guardar los datos.' })
             }

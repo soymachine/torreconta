@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useEmpresaId } from '../../auth/AuthProvider'
-import { Alert, Button, Field, Input } from '../../components/ui'
+import { Alert, Button, Field, Input } from '../../components/base'
 import { MENSAJES_ERROR_SUBCUENTA, validarNuevaSubcuenta, type Cuenta } from '../../lib/cuentas'
 import { crearCuenta } from '../../services/cuentas'
 

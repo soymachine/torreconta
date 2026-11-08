@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react'
+import { toast } from 'sonner'
+import { Checkbox } from '@/components/ui/checkbox'
 import { centsAInput, errorMsg, Euros, Modal } from '../../components/shared'
-import { Alert, Button, Field, Input, Select } from '../../components/ui'
+import { Alert, Button, Field, Input, Select } from '../../components/base'
 import { calcularFactura, TIPOS_IRPF, TIPOS_IVA, type LineaFactura } from '../../lib/contabilizacion'
 import { esImputable } from '../../lib/cuentas'
 import { parseEuros } from '../../lib/money'
@@ -88,6 +90,7 @@ export function FacturaForm(props: Props) {
           { fecha, tercero, lineas: utiles, irpfPct, cuentaIngreso },
           emitida,
         )
+        toast.success(emitida ? `Factura ${emitida.numero} actualizada` : 'Factura emitida registrada')
       } else {
         const categoria = categorias.find((c) => c.id === categoriaId)
         if (!categoria) throw new Error('Elige la categoría de gasto.')
@@ -97,6 +100,7 @@ export function FacturaForm(props: Props) {
           { fecha, numero, tercero, lineas: utiles, irpfPct, ivaDeducible, categoria },
           recibida,
         )
+        toast.success(recibida ? `Factura ${recibida.numero} actualizada` : 'Factura recibida registrada')
       }
       onDone()
     } catch (err) {
@@ -143,7 +147,7 @@ export function FacturaForm(props: Props) {
               </Select>
             </Field>
             <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
-              <input type="checkbox" checked={ivaDeducible} onChange={(e) => setIvaDeducible(e.target.checked)} />
+              <Checkbox checked={ivaDeducible} onCheckedChange={(v) => setIvaDeducible(v === true)} />
               IVA deducible
             </label>
           </>

@@ -1,7 +1,7 @@
 import { onSnapshot, query, where, type Query } from 'firebase/firestore'
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useEmpresaId } from '../../auth/AuthProvider'
-import { Alert, Spinner } from '../../components/ui'
+import { Alert, Spinner } from '../../components/base'
 import type { Asiento } from '../../lib/asientos'
 import { compararCodigos, type Cuenta } from '../../lib/cuentas'
 import type { Categoria, Ejercicio, FacturaEmitida, FacturaRecibida, Tercero } from '../../lib/tipos'

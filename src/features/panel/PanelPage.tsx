@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Euros, PageHeader } from '../../components/shared'
-import { Card } from '../../components/ui'
+import { Card } from '../../components/base'
 import { gastoPorCategoria, modelo303, trimestreActual } from '../../lib/iva'
 import { paraInformes, pyg, sumasPorCuenta } from '../../lib/saldos'
 import { useLibros } from '../libros/LibrosProvider'

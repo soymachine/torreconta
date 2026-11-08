@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Euros, PageHeader } from '../../components/shared'
-import { Button, Card } from '../../components/ui'
+import { Button, Card } from '../../components/base'
 import { centsCsv, descargarCsv, toCsv } from '../../lib/csv'
 import { paraInformes, pyg, type PartidaPyg } from '../../lib/saldos'
 import { useLibros } from '../libros/LibrosProvider'

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Euros, PageHeader } from '../../components/shared'
-import { Alert, Button, Card } from '../../components/ui'
+import { Alert, Button, Card } from '../../components/base'
 import { centsCsv, descargarCsv, toCsv } from '../../lib/csv'
 import { balance, paraInformes, type SeccionBalance } from '../../lib/saldos'
 import { useLibros } from '../libros/LibrosProvider'

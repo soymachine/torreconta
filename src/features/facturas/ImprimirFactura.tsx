@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { Euros, formatFecha } from '../../components/shared'
-import { Button } from '../../components/ui'
+import { Button } from '../../components/base'
 import { importeLinea } from '../../lib/contabilizacion'
 import { useLibros } from '../libros/LibrosProvider'
 

@@ -1,7 +1,13 @@
-import { useEffect, useId, type ReactNode } from 'react'
+import { cn } from '@/lib/utils'
+import { Check, ChevronsUpDown } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { esImputable, type Cuenta } from '../lib/cuentas'
 import { formatEuros, type Cents } from '../lib/money'
-import { Input } from './ui'
+import { Badge as UiBadge } from './ui/badge'
+import { Button as UiButton } from './ui/button'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
 export const th = 'px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500'
 export const thNum = 'px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500'
@@ -43,72 +49,112 @@ export function Modal({
   children: ReactNode
   wide?: boolean
 }) {
-  const id = useId()
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    document.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
-    }
-  }, [onClose])
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-2 sm:p-6">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={id}
-        className={`my-4 w-full rounded-lg bg-white shadow-xl ${wide ? 'max-w-5xl' : 'max-w-xl'}`}
+    <Dialog open onOpenChange={(abierto) => !abierto && onClose()}>
+      <DialogContent
+        className={cn('max-h-[calc(100dvh-2rem)] overflow-y-auto', wide ? 'sm:max-w-5xl' : 'sm:max-w-xl')}
+        // Evita que un clic fuera (p. ej. en un desplegable de un diálogo anidado) cierre el formulario.
+        onInteractOutside={(e) => e.preventDefault()}
       >
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-          <h2 id={id} className="text-lg font-semibold text-slate-900">
-            {title}
-          </h2>
-          <button onClick={onClose} className="rounded p-1 text-slate-500 hover:bg-slate-100" aria-label="Cerrar">
-            ✕
-          </button>
-        </div>
-        <div className="p-5">{children}</div>
-      </div>
-    </div>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">{title}</DialogDescription>
+        </DialogHeader>
+        {children}
+      </DialogContent>
+    </Dialog>
   )
 }
 
-/** Campo de cuenta con autocompletado de las cuentas imputables. */
+const normalizar = (t: string) =>
+  t
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+
+/**
+ * Selector de cuenta con búsqueda por código o nombre (combobox de shadcn).
+ * Solo ofrece cuentas imputables; con `permitirPrefijo` también acepta un
+ * prefijo escrito (p. ej. «43» para todos los clientes en el mayor).
+ */
 export function CuentaInput({
   value,
   onChange,
   cuentas,
   filtro,
+  permitirPrefijo,
+  disabled,
+  placeholder = 'Elige cuenta…',
   ...rest
 }: {
   value: string
   onChange: (codigo: string) => void
   cuentas: readonly Cuenta[]
   filtro?: (c: Cuenta) => boolean
-} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
-  const listId = useId()
+  permitirPrefijo?: boolean
+  disabled?: boolean
+  placeholder?: string
+  'aria-label'?: string
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
   const opciones = cuentas.filter((c) => esImputable(c, cuentas) && (!filtro || filtro(c)))
+  const actual = cuentas.find((c) => c.codigo === value)
+  const elegir = (codigo: string) => {
+    onChange(codigo)
+    setAbierto(false)
+    setBusqueda('')
+  }
   return (
-    <>
-      <Input
-        list={listId}
-        value={value}
-        onChange={(e) => onChange(e.target.value.split(' ')[0].replace(/\D/g, ''))}
-        inputMode="numeric"
-        className="font-mono"
-        {...rest}
-      />
-      <datalist id={listId}>
-        {opciones.map((c) => (
-          <option key={c.codigo} value={c.codigo}>
-            {c.codigo} · {c.nombre}
-          </option>
-        ))}
-      </datalist>
-    </>
+    <Popover open={abierto} onOpenChange={setAbierto}>
+      <PopoverTrigger asChild>
+        <UiButton
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={abierto}
+          aria-label={rest['aria-label']}
+          disabled={disabled}
+          className="h-9 w-full justify-between bg-white px-2.5 font-normal"
+        >
+          <span className={cn('truncate', !value && 'text-muted-foreground')}>
+            {value ? (
+              <>
+                <span className="font-mono">{value}</span>
+                {actual && <span className="text-muted-foreground"> · {actual.nombre}</span>}
+              </>
+            ) : (
+              placeholder
+            )}
+          </span>
+          <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+        </UiButton>
+      </PopoverTrigger>
+      <PopoverContent className="w-[min(28rem,calc(100vw-2rem))] p-0" align="start">
+        <Command filter={(valor, busqueda) => (normalizar(valor).includes(normalizar(busqueda)) ? 1 : 0)}>
+          <CommandInput placeholder="Código o nombre…" value={busqueda} onValueChange={setBusqueda} />
+          <CommandList>
+            <CommandEmpty>No hay cuentas que coincidan.</CommandEmpty>
+            {permitirPrefijo && /^\d+$/.test(busqueda) && !opciones.some((c) => c.codigo === busqueda) && (
+              <CommandGroup>
+                <CommandItem value={`prefijo ${busqueda}`} onSelect={() => elegir(busqueda)}>
+                  Todas las cuentas que empiezan por <span className="font-mono">{busqueda}</span>
+                </CommandItem>
+              </CommandGroup>
+            )}
+            <CommandGroup>
+              {opciones.map((c) => (
+                <CommandItem key={c.codigo} value={`${c.codigo} ${c.nombre}`} onSelect={() => elegir(c.codigo)}>
+                  <Check className={cn('size-4', value === c.codigo ? 'opacity-100' : 'opacity-0')} />
+                  <span className="font-mono">{c.codigo}</span>
+                  <span className="truncate text-muted-foreground">{c.nombre}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -146,5 +192,9 @@ export function Badge({ children, tone = 'slate' }: { children: ReactNode; tone?
     amber: 'bg-amber-50 text-amber-800',
     sky: 'bg-sky-50 text-sky-800',
   }
-  return <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${tones[tone]}`}>{children}</span>
+  return (
+    <UiBadge variant="secondary" className={cn('rounded-md align-middle', tones[tone])}>
+      {children}
+    </UiBadge>
+  )
 }

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { CuentaInput, Euros, formatFecha, PageHeader, TableWrap, td, tdNum, th, thNum } from '../../components/shared'
-import { Button, Field } from '../../components/ui'
+import { Button, Field } from '../../components/base'
 import { centsCsv, descargarCsv, toCsv } from '../../lib/csv'
 import { mayor } from '../../lib/saldos'
 import { enlaceOrigen } from '../diario/DiarioPage'
@@ -34,6 +34,7 @@ export function MayorPage() {
       />
       <Field label="Cuenta" className="mb-4 max-w-xs">
         <CuentaInput
+          permitirPrefijo
           cuentas={cuentas}
           value={cuenta}
           onChange={(v) => setParams(v ? { cuenta: v } : {}, { replace: true })}

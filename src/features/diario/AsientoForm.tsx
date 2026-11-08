@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
+import { toast } from 'sonner'
 import { CuentaInput, centsAInput, errorMsg, Euros } from '../../components/shared'
-import { Alert, Button, Field, Input } from '../../components/ui'
+import { Alert, Button, Field, Input } from '../../components/base'
 import { totales, validarAsiento, type Asiento, type BorradorAsiento, type Linea } from '../../lib/asientos'
 import { parseEuros } from '../../lib/money'
 import { actualizarAsientoManual, crearAsientoManual } from '../../services/asientos'
@@ -60,6 +61,7 @@ export function AsientoForm({ asiento, fechaInicial, onDone }: { asiento?: Asien
     try {
       if (asiento) await actualizarAsientoManual(eid, asiento, borrador, cuentas)
       else await crearAsientoManual(eid, anio, borrador, cuentas)
+      toast.success(asiento ? `Asiento ${asiento.numero} actualizado` : 'Asiento creado')
       onDone()
     } catch (err) {
       setErrores([errorMsg(err)])
@@ -83,7 +85,7 @@ export function AsientoForm({ asiento, fechaInicial, onDone }: { asiento?: Asien
         <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="text-left text-xs uppercase text-slate-500">
-              <th className="w-36 pb-1">Cuenta</th>
+              <th className="w-64 pb-1">Cuenta</th>
               <th className="pb-1">Concepto de la línea</th>
               <th className="w-32 pb-1 text-right">Debe</th>
               <th className="w-32 pb-1 text-right">Haber</th>
@@ -92,12 +94,10 @@ export function AsientoForm({ asiento, fechaInicial, onDone }: { asiento?: Asien
           </thead>
           <tbody>
             {filas.map((f, i) => {
-              const nombre = cuentas.find((c) => c.codigo === f.cuenta)?.nombre
               return (
                 <tr key={i} className="align-top">
                   <td className="py-1 pr-2">
                     <CuentaInput cuentas={cuentas} value={f.cuenta} onChange={(v) => set(i, 'cuenta', v)} aria-label={`Cuenta línea ${i + 1}`} />
-                    <div className="mt-0.5 truncate text-xs text-slate-500">{nombre ?? ' '}</div>
                   </td>
                   <td className="py-1 pr-2">
                     <Input value={f.concepto} onChange={(e) => set(i, 'concepto', e.target.value)} placeholder="(opcional)" aria-label={`Concepto línea ${i + 1}`} />

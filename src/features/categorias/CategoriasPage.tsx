@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Badge, CuentaInput, errorMsg, Euros, Modal, PageHeader, TableWrap, td, tdNum, th, thNum } from '../../components/shared'
-import { Alert, Button, Field, Input, Select } from '../../components/ui'
+import { Alert, Button, Field, Input, Select } from '../../components/base'
 import { gastoPorCategoria } from '../../lib/iva'
 import type { Categoria } from '../../lib/tipos'
 import { actualizarCategoria, crearCategoria, crearCategoriasPredeterminadas } from '../../services/categorias'

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
+import { useConfirmar } from '@/components/Confirmar'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Badge, errorMsg, Euros, formatFecha, hoyEn, Modal, PageHeader, TableWrap, td, tdNum, th, thNum } from '../../components/shared'
-import { Alert, Button, Input, Select } from '../../components/ui'
+import { Alert, Button, Input, Select } from '../../components/base'
 import { centsCsv, descargarCsv, toCsv } from '../../lib/csv'
 import type { FacturaEmitida } from '../../lib/tipos'
 import { borrarFacturaEmitida, deshacerCobro } from '../../services/facturas'
@@ -20,6 +21,7 @@ export function FacturasEmitidasPage() {
   const [q, setQ] = useState('')
   const [error, setError] = useState<string | null>(null)
   const abierto = ejercicio?.estado === 'abierto'
+  const confirmar = useConfirmar()
   const ver = [...emitidas, ...emitidasAnteriores].find((f) => f.id === params.get('ver'))
 
   const visibles = useMemo(
@@ -105,13 +107,13 @@ export function FacturasEmitidasPage() {
                       <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'cobrar', f })}>Cobrar</Button>
                       {abierto && f.ejercicio === anio && <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'editar', f })}>Editar</Button>}
                       {abierto && f.ejercicio === anio && (
-                        <Button variant="ghost" className="px-2 py-1 text-red-700" onClick={() => confirm(`¿Borrar la factura ${f.numero}?`) && accion(() => borrarFacturaEmitida(eid, f))}>
+                        <Button variant="ghost" className="px-2 py-1 text-red-700" onClick={async () => (await confirmar({ titulo: `¿Borrar la factura ${f.numero}?`, descripcion: 'Se borrará también su asiento. Solo se puede borrar la última factura emitida.', accion: 'Borrar', destructiva: true })) && accion(() => borrarFacturaEmitida(eid, f))}>
                           Borrar
                         </Button>
                       )}
                     </>
                   ) : (
-                    <Button variant="ghost" className="px-2 py-1" onClick={() => confirm('¿Deshacer el cobro? Se borrará su asiento.') && accion(() => deshacerCobro(eid, f))}>
+                    <Button variant="ghost" className="px-2 py-1" onClick={async () => (await confirmar({ titulo: '¿Deshacer el cobro?', descripcion: 'Se borrará el asiento del cobro y la factura volverá a quedar pendiente.', accion: 'Deshacer cobro', destructiva: true })) && accion(() => deshacerCobro(eid, f))}>
                       Deshacer cobro
                     </Button>
                   )}

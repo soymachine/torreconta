@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge, Euros, Modal, PageHeader, TableWrap, td, tdNum, th, thNum } from '../../components/shared'
-import { Button, Input, Select } from '../../components/ui'
+import { Button, Input, Select } from '../../components/base'
 import { paraInformes, sumasPorCuenta } from '../../lib/saldos'
 import type { Tercero, TipoTercero } from '../../lib/tipos'
 import { useLibros } from '../libros/LibrosProvider'

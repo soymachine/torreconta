@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { Button, Field, Input } from '../../components/ui'
+import { Button, Field, Input } from '../../components/base'
 import { empresaSchema, type EmpresaFormInput, type EmpresaFormValues } from './empresaSchema'
 
 export function EmpresaForm({

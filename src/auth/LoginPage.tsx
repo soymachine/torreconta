@@ -4,7 +4,7 @@ import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/aut
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { Alert, Button, Card, Field, Input } from '../components/ui'
+import { Alert, Button, Card, Field, Input } from '../components/base'
 import { auth } from '../firebase'
 
 const schema = z.object({

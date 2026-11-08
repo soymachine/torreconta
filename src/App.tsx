@@ -1,9 +1,12 @@
 import { lazy, Suspense, type ComponentType } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, cerrarSesion, useAuth } from './auth/AuthProvider'
+import { ConfirmarProvider } from './components/Confirmar'
+import { Toaster } from './components/ui/sonner'
+import { TooltipProvider } from './components/ui/tooltip'
 import { LoginPage } from './auth/LoginPage'
 import { Layout } from './components/Layout'
-import { Alert, Button, Card, Spinner } from './components/ui'
+import { Alert, Button, Card, Spinner } from './components/base'
 import { EmpresaProvider, useEmpresaState } from './features/empresa/EmpresaProvider'
 import { SetupPage } from './features/empresa/SetupPage'
 import { LibrosProvider } from './features/libros/LibrosProvider'
@@ -107,9 +110,14 @@ function Root() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Root />
-      </BrowserRouter>
+      <TooltipProvider>
+        <ConfirmarProvider>
+          <BrowserRouter>
+            <Root />
+          </BrowserRouter>
+          <Toaster position="top-right" richColors />
+        </ConfirmarProvider>
+      </TooltipProvider>
     </AuthProvider>
   )
 }

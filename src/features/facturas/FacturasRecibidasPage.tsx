@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
+import { useConfirmar } from '@/components/Confirmar'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useSearchParams } from 'react-router-dom'
 import { Badge, errorMsg, Euros, formatFecha, hoyEn, Modal, PageHeader, TableWrap, td, tdNum, th, thNum } from '../../components/shared'
-import { Alert, Button, Field, Input, Select } from '../../components/ui'
+import { Alert, Button, Field, Input, Select } from '../../components/base'
 import { centsCsv, descargarCsv, toCsv } from '../../lib/csv'
 import type { FacturaRecibida } from '../../lib/tipos'
 import { borrarFacturaRecibida, deshacerPago, reasignarCategoria } from '../../services/facturas'
@@ -23,6 +26,7 @@ export function FacturasRecibidasPage() {
   const [destino, setDestino] = useState('')
   const [error, setError] = useState<string | null>(null)
   const abierto = ejercicio?.estado === 'abierto'
+  const confirmar = useConfirmar()
   const ver = [...recibidas, ...recibidasAnteriores].find((f) => f.id === params.get('ver'))
   const catPorId = new Map(categorias.map((c) => [c.id, c]))
 
@@ -65,6 +69,7 @@ export function FacturasRecibidasPage() {
     if (!cat) return
     await accion(async () => {
       await reasignarCategoria(eid, seleccionadas, cat, cuentas)
+      toast.success(`${seleccionadas.length} facturas movidas a «${cat.nombre}»`)
       setSeleccion(new Set())
       setModal(null)
     })
@@ -118,7 +123,7 @@ export function FacturasRecibidasPage() {
           <thead className="bg-slate-50">
             <tr>
               <th className={th}>
-                <input type="checkbox" checked={todas} onChange={() => setSeleccion(todas ? new Set() : new Set(seleccionables.map((f) => f.id)))} aria-label="Seleccionar todas" />
+                <Checkbox checked={todas} onCheckedChange={() => setSeleccion(todas ? new Set() : new Set(seleccionables.map((f) => f.id)))} aria-label="Seleccionar todas" />
               </th>
               <th className={th}>Fecha</th>
               <th className={th}>Número</th>
@@ -136,7 +141,7 @@ export function FacturasRecibidasPage() {
               const c = catPorId.get(f.categoriaId)
               return (
                 <tr key={f.id} className="border-t border-slate-100">
-                  <td className={td}><input type="checkbox" disabled={f.ejercicio !== anio} checked={seleccion.has(f.id)} onChange={() => toggle(f.id)} aria-label={`Seleccionar ${f.numero}`} /></td>
+                  <td className={td}><Checkbox disabled={f.ejercicio !== anio} checked={seleccion.has(f.id)} onCheckedChange={() => toggle(f.id)} aria-label={`Seleccionar ${f.numero}`} /></td>
                   <td className={`${td} whitespace-nowrap`}>
                     {formatFecha(f.fecha)} {f.ejercicio !== anio && <Badge>{f.ejercicio}</Badge>}
                   </td>
@@ -156,13 +161,13 @@ export function FacturasRecibidasPage() {
                         <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'pagar', f })}>Pagar</Button>
                         {abierto && f.ejercicio === anio && <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'editar', f })}>Editar</Button>}
                         {abierto && f.ejercicio === anio && (
-                          <Button variant="ghost" className="px-2 py-1 text-red-700" onClick={() => confirm(`¿Borrar la factura ${f.numero}?`) && accion(() => borrarFacturaRecibida(eid, f))}>
+                          <Button variant="ghost" className="px-2 py-1 text-red-700" onClick={async () => (await confirmar({ titulo: `¿Borrar la factura ${f.numero}?`, descripcion: 'Se borrará también su asiento.', accion: 'Borrar', destructiva: true })) && accion(() => borrarFacturaRecibida(eid, f))}>
                             Borrar
                           </Button>
                         )}
                       </>
                     ) : (
-                      <Button variant="ghost" className="px-2 py-1" onClick={() => confirm('¿Deshacer el pago? Se borrará su asiento.') && accion(() => deshacerPago(eid, f))}>
+                      <Button variant="ghost" className="px-2 py-1" onClick={async () => (await confirmar({ titulo: '¿Deshacer el pago?', descripcion: 'Se borrará el asiento del pago y la factura volverá a quedar pendiente.', accion: 'Deshacer pago', destructiva: true })) && accion(() => deshacerPago(eid, f))}>
                         Deshacer pago
                       </Button>
                     )}

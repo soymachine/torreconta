@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
+import { useConfirmar } from '@/components/Confirmar'
 import { Link } from 'react-router-dom'
 import { Badge, errorMsg, Euros, formatFecha, hoyEn, Modal, PageHeader, TableWrap, td, tdNum, th, thNum } from '../../components/shared'
-import { Alert, Button, Input } from '../../components/ui'
+import { Alert, Button, Input } from '../../components/base'
 import { estaEnOrdenCronologico, ORIGEN_LABEL, ORIGENES_BORRABLES, ORIGENES_CIERRE, ordenarAsientos, type Asiento } from '../../lib/asientos'
 import { centsCsv, descargarCsv, toCsv } from '../../lib/csv'
 import { borrarAsientoManual, renumerarAsientos } from '../../services/asientos'
@@ -24,6 +25,7 @@ export function DiarioPage() {
   const [error, setError] = useState<string | null>(null)
   const nombres = useMemo(() => new Map(cuentas.map((c) => [c.codigo, c.nombre])), [cuentas])
   const abierto = ejercicio?.estado === 'abierto'
+  const confirmar = useConfirmar()
 
   const visibles = useMemo(() => {
     const q = texto.trim().toLowerCase()
@@ -55,7 +57,13 @@ export function DiarioPage() {
   }
 
   const borrar = async (a: Asiento) => {
-    if (!confirm(`¿Borrar el asiento ${a.numero}? Su número quedará libre.`)) return
+    const ok = await confirmar({
+      titulo: `¿Borrar el asiento ${a.numero}?`,
+      descripcion: 'Su número quedará libre; puedes renumerar el diario después.',
+      accion: 'Borrar',
+      destructiva: true,
+    })
+    if (!ok) return
     try {
       await borrarAsientoManual(eid, a)
     } catch (e) {
