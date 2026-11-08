@@ -13,21 +13,21 @@ import { TesoreriaForm } from './TesoreriaForm'
 type ModalState = { tipo: 'nueva' } | { tipo: 'editar' | 'cobrar'; f: FacturaEmitida } | null
 
 export function FacturasEmitidasPage() {
-  const { uid, anio, emitidas, ejercicio } = useLibros()
+  const { uid, anio, emitidas, emitidasAnteriores, ejercicio } = useLibros()
   const [params, setParams] = useSearchParams()
   const [modal, setModal] = useState<ModalState>(null)
   const [estado, setEstado] = useState<'' | 'pendiente' | 'cobrada'>('')
   const [q, setQ] = useState('')
   const [error, setError] = useState<string | null>(null)
   const abierto = ejercicio?.estado === 'abierto'
-  const ver = emitidas.find((f) => f.id === params.get('ver'))
+  const ver = [...emitidas, ...emitidasAnteriores].find((f) => f.id === params.get('ver'))
 
   const visibles = useMemo(
     () =>
-      [...emitidas]
-        .sort((a, b) => b.secuencia - a.secuencia)
+      [...emitidas, ...emitidasAnteriores]
+        .sort((a, b) => b.ejercicio - a.ejercicio || b.secuencia - a.secuencia)
         .filter((f) => (!estado || f.estado === estado) && (!q || `${f.numero} ${f.terceroNombre}`.toLowerCase().includes(q.toLowerCase()))),
-    [emitidas, estado, q],
+    [emitidas, emitidasAnteriores, estado, q],
   )
   const tot = visibles.reduce((s, f) => ({ base: s.base + f.baseCent, iva: s.iva + f.cuotaIvaCent, total: s.total + f.totalCent }), { base: 0, iva: 0, total: 0 })
 
@@ -90,7 +90,9 @@ export function FacturasEmitidasPage() {
                 <td className={`${td} font-mono`}>
                   <button className="hover:underline" onClick={() => setParams({ ver: f.id })}>{f.numero}</button>
                 </td>
-                <td className={`${td} whitespace-nowrap`}>{formatFecha(f.fecha)}</td>
+                <td className={`${td} whitespace-nowrap`}>
+                  {formatFecha(f.fecha)} {f.ejercicio !== anio && <Badge>{f.ejercicio}</Badge>}
+                </td>
                 <td className={td}>{f.terceroNombre}</td>
                 <td className={tdNum}><Euros cents={f.baseCent} /></td>
                 <td className={tdNum}><Euros cents={f.cuotaIvaCent} /></td>
@@ -101,8 +103,8 @@ export function FacturasEmitidasPage() {
                   {f.estado === 'pendiente' ? (
                     <>
                       <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'cobrar', f })}>Cobrar</Button>
-                      {abierto && <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'editar', f })}>Editar</Button>}
-                      {abierto && (
+                      {abierto && f.ejercicio === anio && <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'editar', f })}>Editar</Button>}
+                      {abierto && f.ejercicio === anio && (
                         <Button variant="ghost" className="px-2 py-1 text-red-700" onClick={() => confirm(`¿Borrar la factura ${f.numero}?`) && accion(() => borrarFacturaEmitida(uid, f))}>
                           Borrar
                         </Button>

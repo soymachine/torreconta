@@ -26,6 +26,8 @@ const ImprimirFactura = lazyPage(() => import('./features/facturas/ImprimirFactu
 const BalancePage = lazyPage(() => import('./features/informes/BalancePage'), 'BalancePage')
 const PygPage = lazyPage(() => import('./features/informes/PygPage'), 'PygPage')
 const IvaPage = lazyPage(() => import('./features/informes/IvaPage'), 'IvaPage')
+const CierrePage = lazyPage(() => import('./features/ejercicios/CierrePage'), 'CierrePage')
+const CierreHechoPage = lazyPage(() => import('./features/ejercicios/CierrePage'), 'CierreHechoPage')
 const GastoCategoriasPage = lazyPage(() => import('./features/informes/GastoCategoriasPage'), 'GastoCategoriasPage')
 
 function NoAutorizado({ email }: { email: string | null }) {
@@ -73,6 +75,8 @@ function AppAutorizada() {
             <Route path="/informes/pyg" element={<PygPage />} />
             <Route path="/informes/balance" element={<BalancePage />} />
             <Route path="/informes/gasto-categorias" element={<GastoCategoriasPage />} />
+            <Route path="/ejercicios/cierre" element={<CierrePage />} />
+            <Route path="/ejercicios/cierre/hecho" element={<CierreHechoPage />} />
             <Route path="/empresa" element={<EmpresaPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

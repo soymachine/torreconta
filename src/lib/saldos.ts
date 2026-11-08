@@ -9,6 +9,25 @@ export interface SumaCuenta {
   haber: Cents
 }
 
+/**
+ * Asientos que cuentan para PyG, balance y sumas y saldos: se excluyen la
+ * regularización y el cierre, para que un ejercicio cerrado siga mostrando
+ * sus cifras (y no todo a cero). El diario y el mayor muestran todo.
+ */
+export function paraInformes<A extends Pick<AsientoData, 'origen'>>(asientos: readonly A[]): A[] {
+  return asientos.filter((a) => a.origen !== 'regularizacion' && a.origen !== 'cierre')
+}
+
+/** Saldo (debe − haber) por cuenta, opcionalmente hasta una fecha incluida. */
+export function saldosHasta(asientos: readonly AsientoData[], hasta?: string): Map<string, Cents> {
+  const m = new Map<string, Cents>()
+  for (const a of asientos) {
+    if (hasta && a.fecha > hasta) continue
+    for (const l of a.lineas) m.set(l.cuenta, (m.get(l.cuenta) ?? 0) + l.debeCent - l.haberCent)
+  }
+  return m
+}
+
 /** Sumas de debe y haber por cuenta de detalle. */
 export function sumasPorCuenta(asientos: readonly AsientoData[]): Map<string, SumaCuenta> {
   const m = new Map<string, SumaCuenta>()

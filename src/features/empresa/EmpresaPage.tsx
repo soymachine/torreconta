@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useUid } from '../../auth/AuthProvider'
 import { Badge, errorMsg } from '../../components/shared'
 import { Alert, Button, Card } from '../../components/ui'
@@ -53,7 +54,12 @@ export function EmpresaPage() {
                 <span className="text-slate-500">· {e.contadorAsientos} asientos · {e.contadorFacturas ?? 0} facturas emitidas</span>
               </span>
               {e.anio === empresa.ejercicioActivo ? (
-                <Badge tone="sky">Activo</Badge>
+                <span className="flex items-center gap-2">
+                  <Link to="/ejercicios/cierre" className="text-sm text-slate-700 underline">
+                    {e.estado === 'abierto' ? 'Cerrar…' : 'Ver cierre / reabrir'}
+                  </Link>
+                  <Badge tone="sky">Activo</Badge>
+                </span>
               ) : (
                 <Button variant="ghost" onClick={() => cambiarEjercicioActivo(uid, e.anio).catch((err) => setMsgEj(errorMsg(err)))}>
                   Activar
@@ -78,8 +84,7 @@ export function EmpresaPage() {
           Abrir ejercicio {siguiente}
         </Button>
         <p className="mt-2 text-xs text-slate-500">
-          El cierre con asientos de regularización y apertura llegará en la próxima versión; mientras tanto puedes hacerlos
-          como asientos manuales.
+          Para cerrar un ejercicio, actívalo y usa «Cerrar…»: genera la regularización, el cierre y la apertura del siguiente.
         </p>
       </Card>
     </div>

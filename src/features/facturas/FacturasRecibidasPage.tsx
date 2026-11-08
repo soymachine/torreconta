@@ -13,7 +13,7 @@ import { TesoreriaForm } from './TesoreriaForm'
 type ModalState = { tipo: 'nueva' | 'reasignar' } | { tipo: 'editar' | 'pagar'; f: FacturaRecibida } | null
 
 export function FacturasRecibidasPage() {
-  const { uid, anio, recibidas, categorias, cuentas, ejercicio } = useLibros()
+  const { uid, anio, recibidas, recibidasAnteriores, categorias, cuentas, ejercicio } = useLibros()
   const [params, setParams] = useSearchParams()
   const [modal, setModal] = useState<ModalState>(null)
   const [estado, setEstado] = useState<'' | 'pendiente' | 'pagada'>('')
@@ -23,12 +23,12 @@ export function FacturasRecibidasPage() {
   const [destino, setDestino] = useState('')
   const [error, setError] = useState<string | null>(null)
   const abierto = ejercicio?.estado === 'abierto'
-  const ver = recibidas.find((f) => f.id === params.get('ver'))
+  const ver = [...recibidas, ...recibidasAnteriores].find((f) => f.id === params.get('ver'))
   const catPorId = new Map(categorias.map((c) => [c.id, c]))
 
   const visibles = useMemo(
     () =>
-      [...recibidas]
+      [...recibidas, ...recibidasAnteriores]
         .sort((a, b) => b.fecha.localeCompare(a.fecha))
         .filter(
           (f) =>
@@ -36,11 +36,12 @@ export function FacturasRecibidasPage() {
             (!categoriaFiltro || f.categoriaId === categoriaFiltro) &&
             (!q || `${f.numero} ${f.terceroNombre}`.toLowerCase().includes(q.toLowerCase())),
         ),
-    [recibidas, estado, categoriaFiltro, q],
+    [recibidas, recibidasAnteriores, estado, categoriaFiltro, q],
   )
   const tot = visibles.reduce((s, f) => ({ base: s.base + f.baseCent, iva: s.iva + f.cuotaIvaCent, total: s.total + f.totalCent }), { base: 0, iva: 0, total: 0 })
-  const seleccionadas = visibles.filter((f) => seleccion.has(f.id))
-  const todas = visibles.length > 0 && seleccionadas.length === visibles.length
+  const seleccionadas = visibles.filter((f) => seleccion.has(f.id) && f.ejercicio === anio)
+  const seleccionables = visibles.filter((f) => f.ejercicio === anio)
+  const todas = seleccionables.length > 0 && seleccionadas.length === seleccionables.length
 
   const accion = async (fn: () => Promise<void>) => {
     setError(null)
@@ -117,7 +118,7 @@ export function FacturasRecibidasPage() {
           <thead className="bg-slate-50">
             <tr>
               <th className={th}>
-                <input type="checkbox" checked={todas} onChange={() => setSeleccion(todas ? new Set() : new Set(visibles.map((f) => f.id)))} aria-label="Seleccionar todas" />
+                <input type="checkbox" checked={todas} onChange={() => setSeleccion(todas ? new Set() : new Set(seleccionables.map((f) => f.id)))} aria-label="Seleccionar todas" />
               </th>
               <th className={th}>Fecha</th>
               <th className={th}>Número</th>
@@ -135,8 +136,10 @@ export function FacturasRecibidasPage() {
               const c = catPorId.get(f.categoriaId)
               return (
                 <tr key={f.id} className="border-t border-slate-100">
-                  <td className={td}><input type="checkbox" checked={seleccion.has(f.id)} onChange={() => toggle(f.id)} aria-label={`Seleccionar ${f.numero}`} /></td>
-                  <td className={`${td} whitespace-nowrap`}>{formatFecha(f.fecha)}</td>
+                  <td className={td}><input type="checkbox" disabled={f.ejercicio !== anio} checked={seleccion.has(f.id)} onChange={() => toggle(f.id)} aria-label={`Seleccionar ${f.numero}`} /></td>
+                  <td className={`${td} whitespace-nowrap`}>
+                    {formatFecha(f.fecha)} {f.ejercicio !== anio && <Badge>{f.ejercicio}</Badge>}
+                  </td>
                   <td className={`${td} font-mono`}><button className="hover:underline" onClick={() => setParams({ ver: f.id })}>{f.numero}</button></td>
                   <td className={td}>{f.terceroNombre}</td>
                   <td className={td}>
@@ -151,8 +154,8 @@ export function FacturasRecibidasPage() {
                     {f.estado === 'pendiente' ? (
                       <>
                         <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'pagar', f })}>Pagar</Button>
-                        {abierto && <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'editar', f })}>Editar</Button>}
-                        {abierto && (
+                        {abierto && f.ejercicio === anio && <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'editar', f })}>Editar</Button>}
+                        {abierto && f.ejercicio === anio && (
                           <Button variant="ghost" className="px-2 py-1 text-red-700" onClick={() => confirm(`¿Borrar la factura ${f.numero}?`) && accion(() => borrarFacturaRecibida(uid, f))}>
                             Borrar
                           </Button>

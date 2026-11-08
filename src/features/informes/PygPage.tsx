@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Euros, PageHeader } from '../../components/shared'
 import { Button, Card } from '../../components/ui'
 import { centsCsv, descargarCsv, toCsv } from '../../lib/csv'
-import { pyg, type PartidaPyg } from '../../lib/saldos'
+import { paraInformes, pyg, type PartidaPyg } from '../../lib/saldos'
 import { useLibros } from '../libros/LibrosProvider'
 
 function Bloque({ titulo, partidas, total }: { titulo: string; partidas: PartidaPyg[]; total: number }) {
@@ -22,7 +22,7 @@ function Bloque({ titulo, partidas, total }: { titulo: string; partidas: Partida
 
 export function PygPage() {
   const { anio, asientos, cuentas } = useLibros()
-  const r = useMemo(() => pyg(asientos, cuentas), [asientos, cuentas])
+  const r = useMemo(() => pyg(paraInformes(asientos), cuentas), [asientos, cuentas])
   const exportar = () =>
     descargarCsv(
       `pyg-${anio}.csv`,

@@ -88,6 +88,11 @@ service cloud.firestore {
           && request.resource.data.contadorAsientos >= 0
           && (!('contadorFacturas' in request.resource.data)
               || (request.resource.data.contadorFacturas is int && request.resource.data.contadorFacturas >= 0));
+        // Reabrir un ejercicio cerrado (deshacer el cierre): solo cambia el estado.
+        allow update: if autorizado(uid)
+          && resource.data.estado == 'cerrado'
+          && cambiaSolo(['estado'])
+          && request.resource.data.estado == 'abierto';
         allow delete: if false;
       }
 
@@ -98,7 +103,7 @@ service cloud.firestore {
             && d.numero is int && d.numero > 0
             && fechaDe(d)
             && textoMax(d.concepto, 300)
-            && d.lineas is list && d.lineas.size() >= 2 && d.lineas.size() <= 200
+            && d.lineas is list && d.lineas.size() >= 2 && d.lineas.size() <= 1000
             && d.cuentas is list
             && d.totalDebeCent is int && d.totalHaberCent is int
             && d.totalDebeCent > 0

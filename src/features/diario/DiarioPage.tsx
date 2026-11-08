@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge, errorMsg, Euros, formatFecha, hoyEn, Modal, PageHeader, TableWrap, td, tdNum, th, thNum } from '../../components/shared'
 import { Alert, Button, Input } from '../../components/ui'
-import { estaEnOrdenCronologico, ORIGEN_LABEL, ordenarAsientos, type Asiento } from '../../lib/asientos'
+import { estaEnOrdenCronologico, ORIGEN_LABEL, ORIGENES_BORRABLES, ORIGENES_CIERRE, ordenarAsientos, type Asiento } from '../../lib/asientos'
 import { centsCsv, descargarCsv, toCsv } from '../../lib/csv'
 import { borrarAsientoManual, renumerarAsientos } from '../../services/asientos'
 import { useLibros } from '../libros/LibrosProvider'
@@ -123,11 +123,15 @@ export function DiarioPage() {
                   <td className={tdNum} />
                   <td className={tdNum} />
                   <td className={`${td} whitespace-nowrap text-right`}>
-                    {a.origen === 'manual' && abierto ? (
+                    {ORIGENES_BORRABLES.includes(a.origen) && abierto ? (
                       <>
-                        <Button variant="ghost" className="px-2 py-1" onClick={() => setEditando(a)}>Editar</Button>
+                        {a.origen === 'manual' && <Button variant="ghost" className="px-2 py-1" onClick={() => setEditando(a)}>Editar</Button>}
                         <Button variant="ghost" className="px-2 py-1 text-red-700" onClick={() => borrar(a)}>Borrar</Button>
                       </>
+                    ) : a.origen === 'apertura' ? (
+                      <span className="text-xs text-slate-500" title="Se deshace reabriendo el ejercicio anterior">Del cierre de {a.ejercicio - 1}</span>
+                    ) : ORIGENES_CIERRE.includes(a.origen) ? (
+                      <Link to="/ejercicios/cierre" className="text-xs text-slate-600 hover:underline">Ver cierre</Link>
                     ) : enlace ? (
                       <Link to={enlace} className="text-xs text-slate-600 hover:underline">Ver documento</Link>
                     ) : null}

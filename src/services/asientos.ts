@@ -1,6 +1,6 @@
 import { deleteDoc, runTransaction, updateDoc, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
-import { aAsientoData, ordenarPorFecha, validarAsiento, type Asiento, type BorradorAsiento } from '../lib/asientos'
+import { aAsientoData, ORIGENES_BORRABLES, ORIGENES_CIERRE, ordenarPorFecha, validarAsiento, type Asiento, type BorradorAsiento } from '../lib/asientos'
 import type { Cuenta } from '../lib/cuentas'
 import { leerEjercicioAbierto } from './ejercicios'
 import { asientoRef, asientosCol, ejercicioRef, nuevoId } from './paths'
@@ -35,7 +35,8 @@ export async function actualizarAsientoManual(uid: string, asiento: Asiento, b: 
 }
 
 export async function borrarAsientoManual(uid: string, asiento: Asiento) {
-  if (asiento.origen !== 'manual') throw new Error('Este asiento se borra desde su factura.')
+  if (!ORIGENES_BORRABLES.includes(asiento.origen))
+    throw new Error(ORIGENES_CIERRE.includes(asiento.origen) ? 'Para deshacer el cierre, reabre el ejercicio.' : 'Este asiento se borra desde su factura.')
   await deleteDoc(asientoRef(uid, asiento.id))
 }
 

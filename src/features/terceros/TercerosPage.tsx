@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge, Euros, Modal, PageHeader, TableWrap, td, tdNum, th, thNum } from '../../components/shared'
 import { Button, Input, Select } from '../../components/ui'
-import { sumasPorCuenta } from '../../lib/saldos'
+import { paraInformes, sumasPorCuenta } from '../../lib/saldos'
 import type { Tercero, TipoTercero } from '../../lib/tipos'
 import { useLibros } from '../libros/LibrosProvider'
 import { TerceroForm, TIPO_LABEL } from './TerceroForm'
@@ -12,7 +12,7 @@ export function TercerosPage() {
   const [tipo, setTipo] = useState<'' | TipoTercero>('')
   const [q, setQ] = useState('')
   const [editando, setEditando] = useState<Tercero | 'nuevo' | null>(null)
-  const sumas = useMemo(() => sumasPorCuenta(asientos), [asientos])
+  const sumas = useMemo(() => sumasPorCuenta(paraInformes(asientos)), [asientos])
   const catNombre = new Map(categorias.map((c) => [c.id, c.nombre]))
 
   const visibles = terceros.filter(

@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Euros, PageHeader } from '../../components/shared'
 import { Alert, Button, Card } from '../../components/ui'
 import { centsCsv, descargarCsv, toCsv } from '../../lib/csv'
-import { balance, type SeccionBalance } from '../../lib/saldos'
+import { balance, paraInformes, type SeccionBalance } from '../../lib/saldos'
 import { useLibros } from '../libros/LibrosProvider'
 
 function Seccion({ s }: { s: SeccionBalance }) {
@@ -24,8 +24,8 @@ function Seccion({ s }: { s: SeccionBalance }) {
 }
 
 export function BalancePage() {
-  const { anio, asientos, cuentas } = useLibros()
-  const b = useMemo(() => balance(asientos, cuentas), [asientos, cuentas])
+  const { anio, asientos, cuentas, ejercicio } = useLibros()
+  const b = useMemo(() => balance(paraInformes(asientos), cuentas), [asientos, cuentas])
   const secciones = [b.activoNoCorriente, b.activoCorriente, b.patrimonioNeto, b.pasivoNoCorriente, b.pasivoCorriente]
   const exportar = () =>
     descargarCsv(
@@ -36,7 +36,7 @@ export function BalancePage() {
     <div>
       <PageHeader
         title="Balance de situación"
-        subtitle={`Ejercicio ${anio} · a la fecha del último asiento · incluye el resultado del ejercicio`}
+        subtitle={`Ejercicio ${anio}${ejercicio?.estado === 'cerrado' ? ' (cerrado) · antes del asiento de cierre' : ' · a la fecha del último asiento'} · incluye el resultado del ejercicio`}
         actions={<><Button variant="secondary" onClick={() => window.print()}>Imprimir</Button><Button variant="secondary" onClick={exportar}>Exportar CSV</Button></>}
       />
       {!b.cuadra && <div className="mb-4"><Alert>El balance no cuadra: revisa el diario.</Alert></div>}

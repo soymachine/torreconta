@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom'
 import { Euros, PageHeader, TableWrap, td, tdNum, th, thNum } from '../../components/shared'
 import { Button, Select } from '../../components/ui'
 import { centsCsv, descargarCsv, toCsv } from '../../lib/csv'
-import { sumasYSaldos } from '../../lib/saldos'
+import { paraInformes, sumasYSaldos } from '../../lib/saldos'
 import { useLibros } from '../libros/LibrosProvider'
 
 export function SumasSaldosPage() {
   const { anio, asientos, cuentas } = useLibros()
   const [nivel, setNivel] = useState<'3' | '2' | 'detalle'>('detalle')
-  const filas = useMemo(() => sumasYSaldos(asientos, cuentas, nivel === 'detalle' ? null : Number(nivel)), [asientos, cuentas, nivel])
+  const filas = useMemo(() => sumasYSaldos(paraInformes(asientos), cuentas, nivel === 'detalle' ? null : Number(nivel)), [asientos, cuentas, nivel])
   const tot = filas.reduce(
     (s, f) => ({ debe: s.debe + f.debe, haber: s.haber + f.haber, sd: s.sd + f.saldoDeudor, sa: s.sa + f.saldoAcreedor }),
     { debe: 0, haber: 0, sd: 0, sa: 0 },
@@ -28,7 +28,7 @@ export function SumasSaldosPage() {
     <div>
       <PageHeader
         title="Sumas y saldos"
-        subtitle={`Ejercicio ${anio}`}
+        subtitle={`Ejercicio ${anio} · sin los asientos de regularización y cierre`}
         actions={
           <>
             <Select value={nivel} onChange={(e) => setNivel(e.target.value as typeof nivel)} aria-label="Nivel">

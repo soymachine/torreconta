@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Euros, PageHeader } from '../../components/shared'
 import { Card } from '../../components/ui'
 import { gastoPorCategoria, modelo303, trimestreActual } from '../../lib/iva'
-import { pyg, sumasPorCuenta } from '../../lib/saldos'
+import { paraInformes, pyg, sumasPorCuenta } from '../../lib/saldos'
 import { useLibros } from '../libros/LibrosProvider'
 
 function Kpi({ label, cents, count, to, tone }: { label: string; cents?: number; count?: number; to?: string; tone?: 'good' | 'bad' }) {
@@ -19,13 +19,13 @@ function Kpi({ label, cents, count, to, tone }: { label: string; cents?: number;
 }
 
 export function PanelPage() {
-  const { anio, asientos, cuentas, emitidas, recibidas, categorias, empresa } = useLibros()
-  const r = useMemo(() => pyg(asientos, cuentas), [asientos, cuentas])
+  const { anio, asientos, cuentas, emitidas, recibidas, emitidasAnteriores, recibidasAnteriores, categorias, empresa } = useLibros()
+  const r = useMemo(() => pyg(paraInformes(asientos), cuentas), [asientos, cuentas])
   const [t] = useState(() => trimestreActual(anio))
   const iva = useMemo(() => modelo303(emitidas, recibidas, anio, t), [emitidas, recibidas, anio, t])
-  const pendCobro = emitidas.filter((f) => f.estado === 'pendiente').reduce((s, f) => s + f.totalCent, 0)
-  const pendPago = recibidas.filter((f) => f.estado === 'pendiente').reduce((s, f) => s + f.totalCent, 0)
-  const sumas = useMemo(() => sumasPorCuenta(asientos), [asientos])
+  const pendCobro = [...emitidas, ...emitidasAnteriores].filter((f) => f.estado === 'pendiente').reduce((s, f) => s + f.totalCent, 0)
+  const pendPago = [...recibidas, ...recibidasAnteriores].filter((f) => f.estado === 'pendiente').reduce((s, f) => s + f.totalCent, 0)
+  const sumas = useMemo(() => sumasPorCuenta(paraInformes(asientos)), [asientos])
   const tesoreria = [...sumas.entries()].filter(([c]) => c.startsWith('57')).reduce((s, [, v]) => s + v.debe - v.haber, 0)
   const gastos = useMemo(() => gastoPorCategoria(recibidas, `${anio}-01-01`, `${anio}-12-31`).slice(0, 6), [recibidas, anio])
   const maxGasto = Math.max(1, ...gastos.map((g) => g.importeCent))

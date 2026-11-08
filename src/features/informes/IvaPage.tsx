@@ -2,16 +2,39 @@ import { useMemo, useState } from 'react'
 import { Euros, formatFecha, PageHeader, TableWrap, td, tdNum, th, thNum } from '../../components/shared'
 import { Button, Card, Select } from '../../components/ui'
 import { centsCsv, descargarCsv, toCsv } from '../../lib/csv'
-import { modelo303, trimestreActual, type Trimestre } from '../../lib/iva'
+import { asientoLiquidacionIva, modelo303, origenIdLiquidacion, trimestreActual, type Trimestre } from '../../lib/iva'
+import { AsientoPreview } from '../../components/AsientoPreview'
+import type { BorradorAsiento } from '../../lib/asientos'
+import { errorMsg } from '../../components/shared'
+import { Alert } from '../../components/ui'
+import { contabilizarLiquidacionIva } from '../../services/cierre'
 import { useLibros } from '../libros/LibrosProvider'
+
+/** Importe a ingresar (positivo) o a compensar (negativo) del asiento de liquidación. */
+function resultadoLiquidacion(b: BorradorAsiento): number {
+  return b.lineas.reduce((s, l) => s + (l.cuenta === '4750' ? l.haberCent : l.cuenta === '4700' ? -l.debeCent : 0), 0)
+}
 
 /** Casillas del modelo 303 (régimen general) por tipo de IVA devengado. */
 const CASILLAS: Record<number, [string, string]> = { 4: ['01', '03'], 10: ['04', '06'], 21: ['07', '09'] }
 
 export function IvaPage() {
-  const { anio, emitidas, recibidas } = useLibros()
+  const { uid, anio, emitidas, recibidas, asientos, cuentas, ejercicio } = useLibros()
+  const [verLiq, setVerLiq] = useState(false)
+  const [errorLiq, setErrorLiq] = useState<string | null>(null)
   const [t, setT] = useState<Trimestre>(() => trimestreActual(anio))
   const r = useMemo(() => modelo303(emitidas, recibidas, anio, t), [emitidas, recibidas, anio, t])
+  const liquidado = asientos.find((a) => a.origenId === origenIdLiquidacion(anio, t))
+  const liquidacion = useMemo(() => (liquidado ? null : asientoLiquidacionIva(asientos, anio, t)), [asientos, anio, t, liquidado])
+  const liquidar = async () => {
+    setErrorLiq(null)
+    try {
+      await contabilizarLiquidacionIva(uid, anio, t, asientos, cuentas)
+      setVerLiq(false)
+    } catch (e) {
+      setErrorLiq(errorMsg(e))
+    }
+  }
 
   const exportar = () =>
     descargarCsv(
@@ -85,11 +108,41 @@ export function IvaPage() {
             <Euros cents={r.resultadoCent} />
           </div>
           <div className="mt-1 text-sm">{r.resultadoCent > 0 ? 'A ingresar' : r.resultadoCent < 0 ? 'A compensar o devolver' : 'Sin actividad'}</div>
+          <div className="mt-4 border-t border-slate-100 pt-4" data-testid="liquidacion">
+            {liquidado ? (
+              <p className="text-sm text-emerald-700">Liquidado contablemente (asiento nº {liquidado.numero}).</p>
+            ) : liquidacion ? (
+              <>
+                <Button variant="secondary" onClick={() => setVerLiq((v) => !v)} disabled={ejercicio?.estado !== 'abierto'}>
+                  Contabilizar liquidación del {t}T
+                </Button>
+                <p className="mt-1 text-xs text-slate-500">Salda 477 y 472 contra 4750 (a ingresar) o 4700 (a compensar).</p>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500">Sin IVA pendiente de liquidar hasta este trimestre.</p>
+            )}
+            {errorLiq && <div className="mt-2"><Alert>{errorLiq}</Alert></div>}
+          </div>
           <p className="mt-4 text-xs text-slate-500">
             Cálculo orientativo a partir de las facturas registradas (régimen general, operaciones interiores). Revisa el borrador en la sede de la AEAT antes de presentarlo.
           </p>
         </Card>
       </div>
+      {verLiq && liquidacion && (
+        <Card className="mt-4 space-y-3">
+          <AsientoPreview asiento={liquidacion} cuentas={cuentas} />
+          {resultadoLiquidacion(liquidacion) !== r.resultadoCent && (
+            <Alert tone="info">
+              El importe sale de los saldos de las cuentas 472 y 477 hasta el fin del trimestre (incluye asientos manuales o
+              trimestres anteriores sin liquidar), por eso puede diferir del cálculo por facturas.
+            </Alert>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setVerLiq(false)}>Cancelar</Button>
+            <Button onClick={liquidar}>Contabilizar</Button>
+          </div>
+        </Card>
+      )}
     </div>
   )
 }

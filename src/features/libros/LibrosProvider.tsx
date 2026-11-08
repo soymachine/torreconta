@@ -29,10 +29,23 @@ export interface Libros {
   asientos: Asiento[]
   emitidas: FacturaEmitida[]
   recibidas: FacturaRecibida[]
+  /** Facturas del ejercicio anterior pendientes, o cobradas/pagadas en este. */
+  emitidasAnteriores: FacturaEmitida[]
+  recibidasAnteriores: FacturaRecibida[]
 }
 
 type Colecciones = Omit<Libros, 'uid' | 'empresa' | 'anio' | 'ejercicio'>
-const CLAVES: (keyof Colecciones)[] = ['ejercicios', 'cuentas', 'terceros', 'categorias', 'asientos', 'emitidas', 'recibidas']
+const CLAVES: (keyof Colecciones)[] = [
+  'ejercicios',
+  'cuentas',
+  'terceros',
+  'categorias',
+  'asientos',
+  'emitidas',
+  'recibidas',
+  'emitidasAnteriores',
+  'recibidasAnteriores',
+]
 
 const LibrosContext = createContext<Libros | null>(null)
 
@@ -50,7 +63,7 @@ export function LibrosProvider({ children }: { children: ReactNode }) {
 
   // El proveedor se monta con key={anio}: al cambiar de ejercicio el estado empieza vacío.
   useEffect(() => {
-    const delAnio = (q: Query) => query(q, where('ejercicio', '==', anio))
+    const delAnio = (q: Query, a = anio) => query(q, where('ejercicio', '==', a))
     const fuentes: [keyof Colecciones, Query, boolean][] = [
       ['ejercicios', ejerciciosCol(uid), false],
       ['cuentas', cuentasCol(uid), false],
@@ -59,6 +72,8 @@ export function LibrosProvider({ children }: { children: ReactNode }) {
       ['asientos', delAnio(asientosCol(uid)), true],
       ['emitidas', delAnio(emitidasCol(uid)), true],
       ['recibidas', delAnio(recibidasCol(uid)), true],
+      ['emitidasAnteriores', delAnio(emitidasCol(uid), anio - 1), true],
+      ['recibidasAnteriores', delAnio(recibidasCol(uid), anio - 1), true],
     ]
     const unsubs = fuentes.map(([clave, q, conId]) =>
       onSnapshot(
@@ -86,6 +101,8 @@ export function LibrosProvider({ children }: { children: ReactNode }) {
       categorias: [...d.categorias].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
       ejercicios: [...d.ejercicios].sort((a, b) => a.anio - b.anio),
       ejercicio: d.ejercicios.find((e) => e.anio === anio),
+      emitidasAnteriores: d.emitidasAnteriores.filter((f) => f.estado === 'pendiente' || f.cobro?.fecha.startsWith(`${anio}-`)),
+      recibidasAnteriores: d.recibidasAnteriores.filter((f) => f.estado === 'pendiente' || f.pago?.fecha.startsWith(`${anio}-`)),
     }
   }, [datos, uid, empresa, anio])
 

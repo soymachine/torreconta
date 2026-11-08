@@ -1,5 +1,7 @@
 /** Liquidación trimestral de IVA (modelo 303) y gasto por categoría. */
+import { linea, sinLineasVacias, type AsientoData, type BorradorAsiento } from './asientos'
 import type { Cents } from './money'
+import { saldosHasta } from './saldos'
 import type { FacturaEmitida, FacturaRecibida } from './tipos'
 
 export type Trimestre = 1 | 2 | 3 | 4
@@ -104,4 +106,30 @@ export function gastoPorCategoria(
     m.set(f.categoriaId, acc)
   }
   return [...m.values()].sort((a, b) => b.importeCent - a.importeCent)
+}
+
+export const origenIdLiquidacion = (anio: number, t: Trimestre) => `iva-${anio}-${t}`
+
+/**
+ * Asiento de liquidación del IVA a fin de trimestre. Salda los saldos
+ * acumulados de 477 (repercutido) y 472 (soportado) hasta esa fecha contra
+ * 4750 (a ingresar) o 4700 (a compensar o devolver). Como usa saldos
+ * acumulados, cada liquidación recoge solo lo no liquidado antes.
+ */
+export function asientoLiquidacionIva(asientos: readonly AsientoData[], anio: number, t: Trimestre): BorradorAsiento | null {
+  const { hasta } = rangoTrimestre(anio, t)
+  const saldos = saldosHasta(asientos, hasta)
+  const repercutido = -(saldos.get('477') ?? 0)
+  const soportado = saldos.get('472') ?? 0
+  if (repercutido === 0 && soportado === 0) return null
+  const resultado = repercutido - soportado
+  return {
+    fecha: hasta,
+    concepto: `Liquidación IVA ${t}T ${anio}`,
+    lineas: sinLineasVacias([
+      linea('477', repercutido, 'debe'),
+      linea('472', soportado, 'haber'),
+      resultado >= 0 ? linea('4750', resultado, 'haber') : linea('4700', -resultado, 'debe'),
+    ]),
+  }
 }

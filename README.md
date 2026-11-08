@@ -13,9 +13,10 @@ El plan completo está en [`docs/plan.md`](docs/plan.md).
 | 2 | Libro diario (asientos manuales, renumeración por fecha), mayor y sumas y saldos | ✅ |
 | 3 | Clientes y proveedores con subcuenta automática, categorías de gasto, facturas emitidas y recibidas con asiento automático, cobros y pagos | ✅ |
 | 4 | IVA trimestral (303), PyG, balance, gasto por categoría, panel y exportación CSV | ✅ |
-| 5 | Cierre y apertura automáticos, resumen 390, PDF, copia de seguridad completa | Pendiente |
+| 5a | Liquidación trimestral de IVA, impuesto sobre sociedades, cierre (regularización + cierre) y apertura del ejercicio siguiente, reapertura | ✅ |
+| 5b | Resumen 390, PDF propio, copia de seguridad completa, aplicación automática del resultado | Pendiente |
 
-Planes: [`docs/plan.md`](docs/plan.md) (global) y [`docs/plan-mvp.md`](docs/plan-mvp.md) (MVP).
+Planes: [`docs/plan.md`](docs/plan.md) (global), [`docs/plan-mvp.md`](docs/plan-mvp.md) (MVP) y [`docs/plan-cierre.md`](docs/plan-cierre.md) (cierre).
 
 ### Qué hace la aplicación
 
@@ -36,6 +37,12 @@ Planes: [`docs/plan.md`](docs/plan.md) (global) y [`docs/plan-mvp.md`](docs/plan
   - diario con asientos manuales que validan el cuadre en vivo;
   - mayor por cuenta o por prefijo;
   - sumas y saldos.
+- **Cierre del ejercicio** (menú «Cierre del ejercicio»):
+  1. Comprobaciones previas: cuadre, orden cronológico e IVA liquidado. Para liquidar el IVA, cada trimestre se contabiliza la liquidación desde la página del 303 (477/472 contra 4750/4700).
+  2. Impuesto sobre sociedades opcional (630 contra 473 y 4752, o 4709 si sale a devolver).
+  3. Asientos de regularización (grupos 6 y 7 contra la 129) y de cierre a 31/12, y de apertura a 01/01 del año siguiente.
+  4. El ejercicio queda bloqueado. Las facturas pendientes se cobran o pagan desde el ejercicio nuevo.
+  5. «Reabrir ejercicio» deshace el cierre si hay que corregir algo.
 - **Informes**: modelo 303 por trimestre, pérdidas y ganancias, balance de situación (comprueba que cuadra), gasto por categoría y panel resumen. Todo se exporta a CSV para Excel en español.
 ## Desarrollo local (sin proyecto real de Firebase)
 

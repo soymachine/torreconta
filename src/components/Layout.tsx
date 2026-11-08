@@ -21,6 +21,7 @@ const secciones: { titulo?: string; items: { to: string; label: string }[] }[] =
       { to: '/mayor', label: 'Libro mayor' },
       { to: '/sumas-y-saldos', label: 'Sumas y saldos' },
       { to: '/cuentas', label: 'Plan de cuentas' },
+      { to: '/ejercicios/cierre', label: 'Cierre del ejercicio' },
     ],
   },
   {

@@ -134,14 +134,15 @@ describe('asientos', () => {
 })
 
 describe('ejercicios', () => {
-  it('el contador no puede ser negativo y un ejercicio cerrado no se reabre', async () => {
+  it('el contador no puede ser negativo y un ejercicio cerrado no se modifica', async () => {
     const r = doc(ownerDb(), `users/${OWNER}/ejercicios/2026`)
     await assertSucceeds(updateDoc(r, { contadorAsientos: 1 }))
     await assertSucceeds(updateDoc(r, { contadorAsientos: 0 }))
     await assertFails(updateDoc(r, { contadorAsientos: -1 }))
     await assertFails(updateDoc(r, { contadorAsientos: 'x' }))
     const cerrado = doc(ownerDb(), `users/${OWNER}/ejercicios/2025`)
-    await assertFails(updateDoc(cerrado, { estado: 'abierto' }))
+    await assertFails(updateDoc(cerrado, { contadorAsientos: 11 }))
+    await assertFails(updateDoc(cerrado, { estado: 'abierto', contadorAsientos: 0 }))
   })
 })
 
@@ -246,5 +247,21 @@ describe('renumeración', () => {
     await assertSucceeds(updateDoc(r, { numero: 7 }))
     await assertFails(updateDoc(r, { numero: 8, concepto: 'otro' }))
     await assertFails(updateDoc(r, { numero: 0 }))
+  })
+})
+
+describe('cierre de ejercicio', () => {
+  it('reabrir un ejercicio cerrado solo puede cambiar el estado', async () => {
+    const cerrado = doc(ownerDb(), `users/${OWNER}/ejercicios/2025`)
+    await assertSucceeds(updateDoc(cerrado, { estado: 'abierto' }))
+    await assertFails(updateDoc(doc(intrusoDb(), `users/${OWNER}/ejercicios/2026`), { estado: 'cerrado' }))
+  })
+  it('acepta asientos de cierre con muchas líneas', async () => {
+    const lineas = Array.from({ length: 500 }, (_, i) =>
+      i % 2 === 0 ? { cuenta: '572', debeCent: 100, haberCent: 0 } : { cuenta: '100', debeCent: 0, haberCent: 100 },
+    )
+    await assertSucceeds(
+      setDoc(doc(ownerDb(), `users/${OWNER}/asientos/grande`), asiento({ origen: 'cierre', lineas, cuentas: ['572', '100'], totalDebeCent: 25000, totalHaberCent: 25000 })),
+    )
   })
 })
