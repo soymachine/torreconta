@@ -1,0 +1,111 @@
+rules_version = '2';
+
+// TorreConta: un único usuario. Para dar acceso, crear a mano en la consola
+// el documento /autorizados/{uid} (y desactivar el registro público en Auth).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function autorizado(uid) {
+      return request.auth != null
+        && request.auth.uid == uid
+        && exists(/databases/$(database)/documents/autorizados/$(uid));
+    }
+
+    function soloCampos(campos) {
+      return request.resource.data.keys().hasOnly(campos);
+    }
+
+    function cambiaSolo(campos) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
+    }
+
+    function textoMax(v, max) {
+      return v is string && v.size() <= max;
+    }
+
+    // Cada usuario puede comprobar si está autorizado; nadie puede escribir.
+    match /autorizados/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
+    match /users/{uid} {
+
+      match /config/empresa {
+        allow read: if autorizado(uid);
+        allow create: if autorizado(uid)
+          && request.resource.data.razonSocial is string
+          && request.resource.data.nif is string
+          && request.resource.data.ejercicioActivo is int;
+        allow update: if autorizado(uid)
+          && request.resource.data.razonSocial is string
+          && request.resource.data.nif is string
+          && request.resource.data.ejercicioActivo is int;
+        allow delete: if false;
+      }
+
+      match /cuentas/{codigo} {
+        function cuentaValida() {
+          let d = request.resource.data;
+          return soloCampos(['codigo', 'nombre', 'naturaleza', 'activa'])
+            && d.codigo == codigo
+            && codigo.matches('^[0-9]{1,12}$')
+            && d.nombre is string && d.nombre.size() >= 1 && d.nombre.size() <= 120
+            && d.naturaleza in ['activo', 'pasivo', 'patrimonio', 'gasto', 'ingreso', 'mixta']
+            && d.activa is bool;
+        }
+        allow read: if autorizado(uid);
+        allow create: if autorizado(uid) && cuentaValida();
+        // El código y la naturaleza son inmutables una vez creada la cuenta.
+        allow update: if autorizado(uid) && cuentaValida() && cambiaSolo(['nombre', 'activa']);
+        allow delete: if false;
+      }
+
+      match /ejercicios/{anio} {
+        allow read: if autorizado(uid);
+        allow create: if autorizado(uid)
+          && request.resource.data.anio is int
+          && string(request.resource.data.anio) == anio
+          && request.resource.data.estado == 'abierto'
+          && request.resource.data.contadorAsientos == 0;
+        // El contador solo avanza y un ejercicio cerrado no se reabre.
+        allow update: if autorizado(uid)
+          && resource.data.estado == 'abierto'
+          && cambiaSolo(['estado', 'contadorAsientos'])
+          && request.resource.data.estado in ['abierto', 'cerrado']
+          && request.resource.data.contadorAsientos is int
+          && request.resource.data.contadorAsientos >= resource.data.contadorAsientos;
+        allow delete: if false;
+      }
+
+      match /asientos/{asientoId} {
+        function ejercicioAbierto(anio) {
+          return get(/databases/$(database)/documents/users/$(uid)/ejercicios/$(string(anio))).data.estado == 'abierto';
+        }
+        function asientoValido() {
+          let d = request.resource.data;
+          return d.ejercicio is int
+            && d.numero is int && d.numero > 0
+            && d.fecha is string
+            && d.fecha.matches(string(d.ejercicio) + '-[0-9]{2}-[0-9]{2}')
+            && textoMax(d.concepto, 300)
+            && d.lineas is list && d.lineas.size() >= 2 && d.lineas.size() <= 200
+            && d.cuentas is list
+            && d.totalDebeCent is int && d.totalHaberCent is int
+            && d.totalDebeCent > 0
+            && d.totalDebeCent == d.totalHaberCent
+            && ejercicioAbierto(d.ejercicio);
+        }
+        allow read: if autorizado(uid);
+        allow create: if autorizado(uid) && asientoValido();
+        allow update: if autorizado(uid) && ejercicioAbierto(resource.data.ejercicio) && asientoValido()
+          && request.resource.data.ejercicio == resource.data.ejercicio
+          && request.resource.data.numero == resource.data.numero;
+        allow delete: if autorizado(uid) && ejercicioAbierto(resource.data.ejercicio);
+      }
+
+      // Resto de colecciones (terceros, categorías, facturas…): se irán
+      // añadiendo con sus propias validaciones. Denegado por defecto.
+    }
+  }
+}

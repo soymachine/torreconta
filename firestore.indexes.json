@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "asientos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ejercicio", "order": "ASCENDING" },
+        { "fieldPath": "numero", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "asientos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cuentas", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "fecha", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
