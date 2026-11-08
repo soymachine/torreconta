@@ -78,14 +78,14 @@ service cloud.firestore {
           && request.resource.data.estado == 'abierto'
           && request.resource.data.contadorAsientos == 0
           && request.resource.data.get('contadorFacturas', 0) == 0;
-        // El contador solo avanza y un ejercicio cerrado no se reabre.
+        // Un ejercicio cerrado no se reabre. Los contadores pueden bajar al
+        // renumerar el diario o al borrar la última factura emitida.
         allow update: if autorizado(uid)
           && resource.data.estado == 'abierto'
           && cambiaSolo(['estado', 'contadorAsientos', 'contadorFacturas'])
           && request.resource.data.estado in ['abierto', 'cerrado']
           && request.resource.data.contadorAsientos is int
-          && request.resource.data.contadorAsientos >= resource.data.contadorAsientos
-          // Puede bajar en 1 al borrar la última factura emitida.
+          && request.resource.data.contadorAsientos >= 0
           && (!('contadorFacturas' in request.resource.data)
               || (request.resource.data.contadorFacturas is int && request.resource.data.contadorFacturas >= 0));
         allow delete: if false;
@@ -107,9 +107,10 @@ service cloud.firestore {
         }
         allow read: if autorizado(uid);
         allow create: if autorizado(uid) && asientoValido();
+        // El número solo cambia al renumerar el diario (sin tocar nada más).
         allow update: if autorizado(uid) && ejercicioAbierto(resource.data.ejercicio) && asientoValido()
           && request.resource.data.ejercicio == resource.data.ejercicio
-          && request.resource.data.numero == resource.data.numero;
+          && (request.resource.data.numero == resource.data.numero || cambiaSolo(['numero']));
         allow delete: if autorizado(uid) && ejercicioAbierto(resource.data.ejercicio);
       }
 

@@ -1,6 +1,6 @@
-import { deleteDoc, runTransaction } from 'firebase/firestore'
+import { deleteDoc, runTransaction, updateDoc, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
-import { aAsientoData, validarAsiento, type Asiento, type BorradorAsiento } from '../lib/asientos'
+import { aAsientoData, ordenarPorFecha, validarAsiento, type Asiento, type BorradorAsiento } from '../lib/asientos'
 import type { Cuenta } from '../lib/cuentas'
 import { leerEjercicioAbierto } from './ejercicios'
 import { asientoRef, asientosCol, ejercicioRef, nuevoId } from './paths'
@@ -37,4 +37,22 @@ export async function actualizarAsientoManual(uid: string, asiento: Asiento, b: 
 export async function borrarAsientoManual(uid: string, asiento: Asiento) {
   if (asiento.origen !== 'manual') throw new Error('Este asiento se borra desde su factura.')
   await deleteDoc(asientoRef(uid, asiento.id))
+}
+
+/**
+ * Vuelve a numerar los asientos del ejercicio en orden cronológico (1, 2, 3…),
+ * como exige el libro diario. Devuelve cuántos han cambiado de número.
+ */
+export async function renumerarAsientos(uid: string, anio: number, asientos: readonly Asiento[]): Promise<number> {
+  const cambios = ordenarPorFecha(asientos)
+    .map((a, i) => ({ a, numero: i + 1 }))
+    .filter(({ a, numero }) => a.numero !== numero)
+  for (let i = 0; i < cambios.length; i += 400) {
+    const batch = writeBatch(db)
+    for (const { a, numero } of cambios.slice(i, i + 400)) batch.update(asientoRef(uid, a.id), { numero })
+    await batch.commit()
+  }
+  // El siguiente asiento será el n + 1, sin huecos.
+  await updateDoc(ejercicioRef(uid, anio), { contadorAsientos: asientos.length })
+  return cambios.length
 }

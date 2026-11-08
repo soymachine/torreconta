@@ -38,7 +38,7 @@ describe('percentOf', () => {
 
 describe('formatEuros y sumCents', () => {
   it('formatea en es-ES', () => {
-    expect(formatEuros(123456).replace(/\s/g, ' ')).toMatch(/^1\.?234,56 €$/)
+    expect(formatEuros(123456).replace(/\s/g, ' ')).toBe('1.234,56 €')
     expect(formatEuros(-5).replace(/\s/g, ' ')).toBe('-0,05 €')
   })
   it('suma enteros', () => {

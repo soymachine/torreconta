@@ -113,3 +113,15 @@ export function aAsientoData(
 export function ordenarAsientos<T extends { fecha: string; numero: number }>(xs: readonly T[]): T[] {
   return [...xs].sort((a, b) => a.fecha.localeCompare(b.fecha) || a.numero - b.numero)
 }
+
+/**
+ * Orden cronológico estable para renumerar: por fecha y, a igual fecha, por
+ * el número actual (respeta el orden en que se registraron).
+ */
+export function ordenarPorFecha<T extends { fecha: string; numero: number }>(xs: readonly T[]): T[] {
+  return ordenarAsientos(xs)
+}
+
+export function estaEnOrdenCronologico(xs: readonly { fecha: string; numero: number }[]): boolean {
+  return ordenarPorFecha(xs).every((a, i) => a.numero === i + 1)
+}

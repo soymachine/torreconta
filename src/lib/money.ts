@@ -8,6 +8,9 @@ const formatter = new Intl.NumberFormat('es-ES', {
   style: 'currency',
   currency: 'EUR',
   minimumFractionDigits: 2,
+  // En es-ES los números de 4 cifras no se agrupan por defecto (1234,56);
+  // en contabilidad se lee mejor siempre agrupado (1.234,56).
+  useGrouping: 'always',
 })
 
 export function formatEuros(cents: Cents): string {

@@ -8,6 +8,11 @@ export function trimestreDe(fecha: string): Trimestre {
   return (Math.floor((Number(fecha.slice(5, 7)) - 1) / 3) + 1) as Trimestre
 }
 
+/** Trimestre en curso si el ejercicio es el año actual; si no, el 4º. */
+export function trimestreActual(anio: number, hoy: Date = new Date()): Trimestre {
+  return hoy.getFullYear() === anio ? (Math.floor(hoy.getMonth() / 3) + 1) as Trimestre : 4
+}
+
 export function rangoTrimestre(anio: number, t: Trimestre): { desde: string; hasta: string } {
   const mIni = (t - 1) * 3 + 1
   const mFin = mIni + 2

@@ -5,16 +5,38 @@ Stack: **Vite + React + TypeScript**, **Tailwind CSS**, **Firebase** (Authentica
 
 El plan completo está en [`docs/plan.md`](docs/plan.md).
 
-## Estado
+## Estado: MVP
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| 1 | Scaffolding, login, reglas de seguridad, alta de empresa con el PGC de PYMES y plan de cuentas | ✅ |
-| 2 | Libro diario (asientos manuales), mayor y sumas y saldos | Pendiente |
-| 3 | Terceros, categorías de compras, facturas emitidas y recibidas con asiento automático, cobros y pagos | Pendiente |
-| 4 | Modelos 303 y 390, libros registro, balance, PyG y gasto por categoría | Pendiente |
-| 5 | Cierre y apertura de ejercicio, exportaciones y copia de seguridad | Pendiente |
+| 1 | Login, reglas de seguridad, alta de empresa con el PGC de PYMES y plan de cuentas | ✅ |
+| 2 | Libro diario (asientos manuales, renumeración por fecha), mayor y sumas y saldos | ✅ |
+| 3 | Clientes y proveedores con subcuenta automática, categorías de gasto, facturas emitidas y recibidas con asiento automático, cobros y pagos | ✅ |
+| 4 | IVA trimestral (303), PyG, balance, gasto por categoría, panel y exportación CSV | ✅ |
+| 5 | Cierre y apertura automáticos, resumen 390, PDF, copia de seguridad completa | Pendiente |
 
+Planes: [`docs/plan.md`](docs/plan.md) (global) y [`docs/plan-mvp.md`](docs/plan-mvp.md) (MVP).
+
+### Qué hace la aplicación
+
+- **Facturas emitidas**:
+  - numeración correlativa `SERIE+AÑO-0001`;
+  - líneas con varios tipos de IVA y retención IRPF;
+  - vista imprimible para guardar en PDF desde el navegador;
+  - registro del cobro.
+  - Solo se puede borrar la última factura, para no dejar huecos.
+- **Facturas recibidas**:
+  - **categoría de gasto obligatoria**, preseleccionada desde el proveedor;
+  - IVA deducible o no deducible;
+  - retención de profesionales;
+  - registro del pago;
+  - filtro por categoría y **cambio de categoría a varias facturas a la vez**, que regenera sus asientos.
+- **Contabilidad automática**: cada factura, cobro o pago genera su asiento del PGC. Por ejemplo, una factura recibida carga la cuenta 6xx de su categoría y la 472, contra la 400/410 del proveedor. La factura, su asiento y el contador se guardan en una misma transacción.
+- **Libros**:
+  - diario con asientos manuales que validan el cuadre en vivo;
+  - mayor por cuenta o por prefijo;
+  - sumas y saldos.
+- **Informes**: modelo 303 por trimestre, pérdidas y ganancias, balance de situación (comprueba que cuadra), gasto por categoría y panel resumen. Todo se exporta a CSV para Excel en español.
 ## Desarrollo local (sin proyecto real de Firebase)
 
 Requisitos: Node 22 y Java 21 (para los emuladores).
@@ -30,7 +52,7 @@ Para entrar, crea un usuario en la UI de emuladores (http://127.0.0.1:4000/auth)
 ## Tests
 
 ```bash
-npm test                   # unitarios: importes, NIF, plan de cuentas
+npm test                   # unitarios: importes, NIF, cuentas, asientos, facturas, saldos, IVA, CSV
 npm run test:rules         # reglas de seguridad de Firestore contra el emulador
 npm run build              # comprobación de tipos y build
 ```

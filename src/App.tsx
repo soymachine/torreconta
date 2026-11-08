@@ -1,12 +1,32 @@
+import { lazy, Suspense, type ComponentType } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, cerrarSesion, useAuth } from './auth/AuthProvider'
 import { LoginPage } from './auth/LoginPage'
 import { Layout } from './components/Layout'
 import { Alert, Button, Card, Spinner } from './components/ui'
-import { CuentasPage } from './features/cuentas/CuentasPage'
-import { EmpresaPage } from './features/empresa/EmpresaPage'
 import { EmpresaProvider, useEmpresaState } from './features/empresa/EmpresaProvider'
 import { SetupPage } from './features/empresa/SetupPage'
+import { LibrosProvider } from './features/libros/LibrosProvider'
+
+// Cada pantalla se carga bajo demanda para que el bundle inicial sea ligero.
+const lazyPage = <K extends string>(loader: () => Promise<Record<K, ComponentType>>, name: K) =>
+  lazy(() => loader().then((m) => ({ default: m[name] })))
+
+const PanelPage = lazyPage(() => import('./features/panel/PanelPage'), 'PanelPage')
+const CuentasPage = lazyPage(() => import('./features/cuentas/CuentasPage'), 'CuentasPage')
+const EmpresaPage = lazyPage(() => import('./features/empresa/EmpresaPage'), 'EmpresaPage')
+const DiarioPage = lazyPage(() => import('./features/diario/DiarioPage'), 'DiarioPage')
+const MayorPage = lazyPage(() => import('./features/mayor/MayorPage'), 'MayorPage')
+const SumasSaldosPage = lazyPage(() => import('./features/mayor/SumasSaldosPage'), 'SumasSaldosPage')
+const TercerosPage = lazyPage(() => import('./features/terceros/TercerosPage'), 'TercerosPage')
+const CategoriasPage = lazyPage(() => import('./features/categorias/CategoriasPage'), 'CategoriasPage')
+const FacturasEmitidasPage = lazyPage(() => import('./features/facturas/FacturasEmitidasPage'), 'FacturasEmitidasPage')
+const FacturasRecibidasPage = lazyPage(() => import('./features/facturas/FacturasRecibidasPage'), 'FacturasRecibidasPage')
+const ImprimirFactura = lazyPage(() => import('./features/facturas/ImprimirFactura'), 'ImprimirFactura')
+const BalancePage = lazyPage(() => import('./features/informes/BalancePage'), 'BalancePage')
+const PygPage = lazyPage(() => import('./features/informes/PygPage'), 'PygPage')
+const IvaPage = lazyPage(() => import('./features/informes/IvaPage'), 'IvaPage')
+const GastoCategoriasPage = lazyPage(() => import('./features/informes/GastoCategoriasPage'), 'GastoCategoriasPage')
 
 function NoAutorizado({ email }: { email: string | null }) {
   return (
@@ -35,13 +55,30 @@ function AppAutorizada() {
     )
   if (state.status === 'sin-configurar') return <SetupPage />
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route path="/cuentas" element={<CuentasPage />} />
-        <Route path="/empresa" element={<EmpresaPage />} />
-        <Route path="*" element={<Navigate to="/cuentas" replace />} />
-      </Route>
-    </Routes>
+    <LibrosProvider key={state.empresa.ejercicioActivo}>
+      <Suspense fallback={<Spinner />}>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route index element={<PanelPage />} />
+            <Route path="/facturas-emitidas" element={<FacturasEmitidasPage />} />
+            <Route path="/facturas-emitidas/:id/imprimir" element={<ImprimirFactura />} />
+            <Route path="/facturas-recibidas" element={<FacturasRecibidasPage />} />
+            <Route path="/terceros" element={<TercerosPage />} />
+            <Route path="/categorias" element={<CategoriasPage />} />
+            <Route path="/diario" element={<DiarioPage />} />
+            <Route path="/mayor" element={<MayorPage />} />
+            <Route path="/sumas-y-saldos" element={<SumasSaldosPage />} />
+            <Route path="/cuentas" element={<CuentasPage />} />
+            <Route path="/informes/iva" element={<IvaPage />} />
+            <Route path="/informes/pyg" element={<PygPage />} />
+            <Route path="/informes/balance" element={<BalancePage />} />
+            <Route path="/informes/gasto-categorias" element={<GastoCategoriasPage />} />
+            <Route path="/empresa" element={<EmpresaPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </Suspense>
+    </LibrosProvider>
   )
 }
 

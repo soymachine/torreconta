@@ -165,3 +165,12 @@ describe('validarAsiento', () => {
     )
   })
 })
+
+describe('orden cronológico', () => {
+  it('detecta numeración desordenada o con huecos', async () => {
+    const { estaEnOrdenCronologico } = await import('./asientos')
+    expect(estaEnOrdenCronologico([{ fecha: '2026-01-01', numero: 1 }, { fecha: '2026-02-01', numero: 2 }])).toBe(true)
+    expect(estaEnOrdenCronologico([{ fecha: '2026-03-01', numero: 1 }, { fecha: '2026-02-01', numero: 2 }])).toBe(false)
+    expect(estaEnOrdenCronologico([{ fecha: '2026-01-01', numero: 1 }, { fecha: '2026-02-01', numero: 3 }])).toBe(false)
+  })
+})

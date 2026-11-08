@@ -126,18 +126,20 @@ describe('asientos', () => {
     await assertFails(updateDoc(ref('viejo'), { concepto: 'cambiado' }))
     await assertFails(deleteDoc(ref('viejo')))
   })
-  it('no permite cambiar el número de un asiento', async () => {
+  it('no permite cambiar el número a la vez que el contenido', async () => {
     await assertSucceeds(setDoc(ref(), asiento()))
-    await assertFails(updateDoc(ref(), { numero: 2 }))
+    await assertFails(updateDoc(ref(), { numero: 2, concepto: 'Otro' }))
     await assertSucceeds(updateDoc(ref(), { concepto: 'Venta corregida' }))
   })
 })
 
 describe('ejercicios', () => {
-  it('el contador solo avanza y un ejercicio cerrado no se reabre', async () => {
+  it('el contador no puede ser negativo y un ejercicio cerrado no se reabre', async () => {
     const r = doc(ownerDb(), `users/${OWNER}/ejercicios/2026`)
     await assertSucceeds(updateDoc(r, { contadorAsientos: 1 }))
-    await assertFails(updateDoc(r, { contadorAsientos: 0 }))
+    await assertSucceeds(updateDoc(r, { contadorAsientos: 0 }))
+    await assertFails(updateDoc(r, { contadorAsientos: -1 }))
+    await assertFails(updateDoc(r, { contadorAsientos: 'x' }))
     const cerrado = doc(ownerDb(), `users/${OWNER}/ejercicios/2025`)
     await assertFails(updateDoc(cerrado, { estado: 'abierto' }))
   })
@@ -234,5 +236,15 @@ describe('facturas', () => {
     await assertSucceeds(updateDoc(r, { contadorFacturas: 1 }))
     await assertSucceeds(updateDoc(r, { contadorFacturas: 0 }))
     await assertFails(updateDoc(r, { contadorFacturas: -1 }))
+  })
+})
+
+describe('renumeración', () => {
+  it('permite cambiar solo el número de un asiento, no el número junto a otros campos', async () => {
+    const r = doc(ownerDb(), `users/${OWNER}/asientos/a1`)
+    await assertSucceeds(setDoc(r, asiento()))
+    await assertSucceeds(updateDoc(r, { numero: 7 }))
+    await assertFails(updateDoc(r, { numero: 8, concepto: 'otro' }))
+    await assertFails(updateDoc(r, { numero: 0 }))
   })
 })

@@ -24,6 +24,7 @@ export function sumasPorCuenta(asientos: readonly AsientoData[]): Map<string, Su
 
 export interface MovimientoMayor<A> {
   asiento: A
+  cuenta: string
   concepto: string
   debe: Cents
   haber: Cents
@@ -38,7 +39,7 @@ export function mayor<A extends AsientoData>(asientos: readonly A[], prefijo: st
     for (const l of a.lineas) {
       if (!l.cuenta.startsWith(prefijo)) continue
       saldo += l.debeCent - l.haberCent
-      out.push({ asiento: a, concepto: l.concepto || a.concepto, debe: l.debeCent, haber: l.haberCent, saldo })
+      out.push({ asiento: a, cuenta: l.cuenta, concepto: l.concepto || a.concepto, debe: l.debeCent, haber: l.haberCent, saldo })
     }
   return out
 }

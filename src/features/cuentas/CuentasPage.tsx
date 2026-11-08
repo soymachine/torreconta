@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useUid } from '../../auth/AuthProvider'
-import { Alert, Button, Card, Input, Select, Spinner } from '../../components/ui'
+import { Alert, Button, Card, Input, Select } from '../../components/ui'
 import { esImputable, GRUPOS, type Cuenta } from '../../lib/cuentas'
 import { actualizarCuenta } from '../../services/cuentas'
 import { NuevaSubcuenta } from './NuevaSubcuenta'
-import { useCuentas } from './useCuentas'
+import { useLibros } from '../libros/LibrosProvider'
 
 const naturalezaLabel: Record<Cuenta['naturaleza'], string> = {
   activo: 'Activo',
@@ -17,7 +17,7 @@ const naturalezaLabel: Record<Cuenta['naturaleza'], string> = {
 
 export function CuentasPage() {
   const uid = useUid()
-  const { cuentas, error } = useCuentas()
+  const { cuentas } = useLibros()
   const [busqueda, setBusqueda] = useState('')
   const [grupo, setGrupo] = useState('')
   const [verInactivas, setVerInactivas] = useState(false)
@@ -26,7 +26,6 @@ export function CuentasPage() {
   const [opError, setOpError] = useState<string | null>(null)
 
   const visibles = useMemo(() => {
-    if (!cuentas) return []
     const q = busqueda.trim().toLowerCase()
     return cuentas.filter(
       (c) =>
@@ -36,8 +35,6 @@ export function CuentasPage() {
     )
   }, [cuentas, busqueda, grupo, verInactivas])
 
-  if (error) return <Alert>No se han podido cargar las cuentas: {error.message}</Alert>
-  if (!cuentas) return <Spinner />
 
   const guardarNombre = async () => {
     if (!editando) return
