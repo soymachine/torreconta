@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { Checkbox } from '@/components/ui/checkbox'
 import { centsAInput, errorMsg, Euros, Modal } from '../../components/shared'
@@ -10,6 +10,7 @@ import type { FacturaEmitida, FacturaRecibida, Tercero, TipoTercero } from '../.
 import { guardarFacturaEmitida, guardarFacturaRecibida } from '../../services/facturas'
 import { useLibros } from '../libros/LibrosProvider'
 import { TerceroForm } from '../terceros/TerceroForm'
+import { claveLinea, primerError, validarFormularioFactura, type ErroresFactura } from './validarFactura'
 
 interface LineaEdit {
   concepto: string
@@ -45,7 +46,22 @@ export function FacturaForm(props: Props) {
   )
   const [nuevoTercero, setNuevoTercero] = useState(false)
   const [extraTerceros, setExtraTerceros] = useState<Tercero[]>([])
+  const [errores, setErrores] = useState<ErroresFactura>({})
   const [error, setError] = useState<string | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
+  const esRecibida = tipo === 'recibida'
+  const etiquetaImporte = esRecibida ? 'Base imponible' : 'Precio'
+
+  /** Quita el error de un campo en cuanto el usuario lo modifica. */
+  const limpiar = (...claves: string[]) =>
+    setErrores((e) => {
+      if (!claves.some((k) => k in e)) return e
+      const n = { ...e }
+      for (const k of claves) delete n[k]
+      if (claves.some((k) => k.startsWith('linea.'))) delete n.lineas
+      return n
+    })
+  const inv = (k: string) => (errores[k] ? true : undefined)
   const [saving, setSaving] = useState(false)
 
   const opcionesTercero = [...terceros, ...extraTerceros.filter((t) => !terceros.some((x) => x.id === t.id))].filter(
@@ -64,26 +80,43 @@ export function FacturaForm(props: Props) {
 
   const elegirTercero = (id: string, lista = opcionesTercero) => {
     setTerceroId(id)
+    limpiar('tercero', 'categoria')
     const t = lista.find((x) => x.id === id)
     if (tipo === 'recibida' && t?.categoriaPorDefectoId) setCategoriaId(t.categoriaPorDefectoId)
   }
 
-  const set = (i: number, campo: keyof LineaEdit, v: string | number) =>
+  const set = (i: number, campo: keyof LineaEdit, v: string | number) => {
     setLineas((ls) => ls.map((l, j) => (j === i ? { ...l, [campo]: v } : l)))
+    if (campo !== 'ivaPct') limpiar(claveLinea(i, campo))
+  }
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
-    const tercero = opcionesTercero.find((t) => t.id === terceroId)
-    if (!tercero) return setError(tipo === 'emitida' ? 'Elige el cliente.' : 'Elige el proveedor.')
-    if (parsed.some((l) => l === null)) return setError('Hay cantidades o precios con formato incorrecto.')
+    const errs = validarFormularioFactura({
+      tipo,
+      anio: existente?.ejercicio ?? anio,
+      fecha,
+      numero,
+      terceroId,
+      categoriaId,
+      cuentaIngreso,
+      cuentasIngresoValidas: cuentasIngreso.map((c) => c.codigo),
+      lineas,
+    })
+    setErrores(errs)
+    const primero = primerError(errs)
+    if (primero) {
+      const el = formRef.current?.querySelector<HTMLElement>(`[data-campo="${primero}"] :is(input, button)`)
+      el?.focus()
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      return
+    }
+    const tercero = opcionesTercero.find((t) => t.id === terceroId)!
     const utiles = validas.filter((l) => l.concepto || l.precioCent)
-    if (!utiles.length) return setError('Añade al menos una línea con importe.')
-    if (utiles.some((l) => !l.concepto)) return setError('Todas las líneas necesitan concepto.')
     setSaving(true)
     try {
       if (tipo === 'emitida') {
-        if (!cuentasIngreso.some((c) => c.codigo === cuentaIngreso)) throw new Error('Elige una cuenta de ingresos válida.')
         await guardarFacturaEmitida(
           eid,
           { serie: empresa.serieFacturas, anio, cuentas },
@@ -111,23 +144,28 @@ export function FacturaForm(props: Props) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5" noValidate>
+    <form ref={formRef} onSubmit={submit} className="space-y-5" noValidate>
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Fecha">
-          <Input type="date" value={fecha} min={`${existente?.ejercicio ?? anio}-01-01`} max={`${existente?.ejercicio ?? anio}-12-31`} onChange={(e) => setFecha(e.target.value)} />
-        </Field>
-        {tipo === 'recibida' ? (
-          <Field label="Nº de factura del proveedor">
-            <Input value={numero} onChange={(e) => setNumero(e.target.value)} maxLength={40} />
+        <Campo k="fecha">
+          <Field label="Fecha" error={errores.fecha}>
+            <Input type="date" aria-invalid={inv('fecha')} value={fecha} min={`${existente?.ejercicio ?? anio}-01-01`} max={`${existente?.ejercicio ?? anio}-12-31`} onChange={(e) => { setFecha(e.target.value); limpiar('fecha') }} />
           </Field>
+        </Campo>
+        {tipo === 'recibida' ? (
+          <Campo k="numero">
+            <Field label="Nº de factura del proveedor" error={errores.numero}>
+              <Input aria-invalid={inv('numero')} value={numero} onChange={(e) => { setNumero(e.target.value); limpiar('numero') }} maxLength={40} />
+            </Field>
+          </Campo>
         ) : (
           <Field label="Número" hint="Se asigna al guardar">
             <Input value={emitida?.numero ?? `${empresa.serieFacturas}${anio}-…`} disabled />
           </Field>
         )}
-        <Field label={tipo === 'emitida' ? 'Cliente' : 'Proveedor'}>
+        <Campo k="tercero">
+        <Field label={tipo === 'emitida' ? 'Cliente' : 'Proveedor'} error={errores.tercero}>
           <div className="flex gap-2">
-            <Select value={terceroId} onChange={(e) => elegirTercero(e.target.value)} aria-label={tipo === 'emitida' ? 'Cliente' : 'Proveedor'}>
+            <Select value={terceroId} onChange={(e) => elegirTercero(e.target.value)} aria-label={tipo === 'emitida' ? 'Cliente' : 'Proveedor'} aria-invalid={inv('tercero')}>
               <option value="">— Elige —</option>
               {opcionesTercero.map((t) => (
                 <option key={t.id} value={t.id}>{t.nombre}{t.nif ? ` · ${t.nif}` : ''}</option>
@@ -136,27 +174,32 @@ export function FacturaForm(props: Props) {
             <Button type="button" variant="secondary" onClick={() => setNuevoTercero(true)} title="Nuevo" aria-label="Crear tercero">+</Button>
           </div>
         </Field>
+        </Campo>
         {tipo === 'recibida' ? (
           <>
-            <Field label="Categoría de gasto" className="sm:col-span-2">
-              <Select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} aria-label="Categoría">
+            <Campo k="categoria" className="sm:col-span-2">
+            <Field label="Categoría de gasto" error={errores.categoria}>
+              <Select value={categoriaId} onChange={(e) => { setCategoriaId(e.target.value); limpiar('categoria') }} aria-label="Categoría" aria-invalid={inv('categoria')}>
                 <option value="">— Elige —</option>
                 {categorias.filter((c) => c.activa || c.id === categoriaId).map((c) => (
                   <option key={c.id} value={c.id}>{c.nombre} ({c.cuentaGasto})</option>
                 ))}
               </Select>
             </Field>
+            </Campo>
             <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
               <Checkbox checked={ivaDeducible} onCheckedChange={(v) => setIvaDeducible(v === true)} />
               IVA deducible
             </label>
           </>
         ) : (
-          <Field label="Cuenta de ingresos" className="sm:col-span-2">
-            <Select value={cuentaIngreso} onChange={(e) => setCuentaIngreso(e.target.value)}>
-              {cuentasIngreso.map((c) => <option key={c.codigo} value={c.codigo}>{c.codigo} · {c.nombre}</option>)}
-            </Select>
-          </Field>
+          <Campo k="cuentaIngreso" className="sm:col-span-2">
+            <Field label="Cuenta de ingresos" error={errores.cuentaIngreso}>
+              <Select value={cuentaIngreso} onChange={(e) => { setCuentaIngreso(e.target.value); limpiar('cuentaIngreso') }} aria-invalid={inv('cuentaIngreso')}>
+                {cuentasIngreso.map((c) => <option key={c.codigo} value={c.codigo}>{c.codigo} · {c.nombre}</option>)}
+              </Select>
+            </Field>
+          </Campo>
         )}
       </div>
 
@@ -165,8 +208,8 @@ export function FacturaForm(props: Props) {
           <thead>
             <tr className="text-left text-xs uppercase text-slate-500">
               <th className="pb-1 pr-2">Concepto</th>
-              <th className="w-24 pb-1 pr-4 text-right">Cantidad</th>
-              <th className="w-32 pb-1 pr-4 text-right">Precio</th>
+              {!esRecibida && <th className="w-24 pb-1 pr-4 text-right">Cantidad</th>}
+              <th className="w-36 pb-1 pr-4 text-right">{etiquetaImporte}</th>
               <th className="w-24 pb-1 pl-1">IVA</th>
               <th className="w-32 pb-1 pr-2 text-right">Importe</th>
               <th className="w-8" />
@@ -175,11 +218,14 @@ export function FacturaForm(props: Props) {
           <tbody>
             {lineas.map((l, i) => {
               const p = parsed[i]
+              const mensajes = (['concepto', 'cantidad', 'precio'] as const).map((c) => errores[claveLinea(i, c)]).filter(Boolean)
               return (
-                <tr key={i}>
-                  <td className="py-1 pr-2"><Input value={l.concepto} onChange={(e) => set(i, 'concepto', e.target.value)} aria-label={`Concepto ${i + 1}`} /></td>
-                  <td className="py-1 pr-2"><Input className="text-right" inputMode="decimal" value={l.cantidad} onChange={(e) => set(i, 'cantidad', e.target.value)} aria-label={`Cantidad ${i + 1}`} /></td>
-                  <td className="py-1 pr-2"><Input className="text-right" inputMode="decimal" value={l.precio} onChange={(e) => set(i, 'precio', e.target.value)} aria-label={`Precio ${i + 1}`} /></td>
+                <Fila key={i} mensajes={mensajes} columnas={esRecibida ? 5 : 6}>
+                  <td className="py-1 pr-2" data-campo={claveLinea(i, 'concepto')}><Input aria-invalid={inv(claveLinea(i, 'concepto'))} value={l.concepto} onChange={(e) => set(i, 'concepto', e.target.value)} aria-label={`Concepto ${i + 1}`} /></td>
+                  {!esRecibida && (
+                    <td className="py-1 pr-2" data-campo={claveLinea(i, 'cantidad')}><Input aria-invalid={inv(claveLinea(i, 'cantidad'))} className="text-right" inputMode="decimal" value={l.cantidad} onChange={(e) => set(i, 'cantidad', e.target.value)} aria-label={`Cantidad ${i + 1}`} /></td>
+                  )}
+                  <td className="py-1 pr-2" data-campo={claveLinea(i, 'precio')}><Input aria-invalid={inv(claveLinea(i, 'precio'))} className="text-right" inputMode="decimal" value={l.precio} onChange={(e) => set(i, 'precio', e.target.value)} aria-label={`${etiquetaImporte} ${i + 1}`} /></td>
                   <td className="py-1 pr-2">
                     <Select value={l.ivaPct} onChange={(e) => set(i, 'ivaPct', Number(e.target.value))} aria-label={`IVA ${i + 1}`}>
                       {TIPOS_IVA.map((t) => <option key={t} value={t}>{t} %</option>)}
@@ -187,13 +233,14 @@ export function FacturaForm(props: Props) {
                   </td>
                   <td className="py-1 pr-2 text-right">{p ? <Euros cents={Math.round(p.cantidad * p.precioCent)} /> : '—'}</td>
                   <td className="py-1">
-                    <button type="button" className="rounded p-2 text-xs text-slate-500 hover:bg-slate-100" onClick={() => setLineas((ls) => (ls.length > 1 ? ls.filter((_, j) => j !== i) : ls))} aria-label={`Quitar línea ${i + 1}`}>✕</button>
+                    <button type="button" className="rounded p-2 text-xs text-slate-500 hover:bg-slate-100" onClick={() => { setLineas((ls) => (ls.length > 1 ? ls.filter((_, j) => j !== i) : ls)); setErrores({}) }} aria-label={`Quitar línea ${i + 1}`}>✕</button>
                   </td>
-                </tr>
+                </Fila>
               )
             })}
           </tbody>
         </table>
+        {errores.lineas && <p className="mt-1 text-xs text-destructive" data-campo="lineas">{errores.lineas}</p>}
         <Button type="button" variant="ghost" onClick={() => setLineas((ls) => [...ls, lineaVacia()])}>+ Línea</Button>
       </div>
 
@@ -218,6 +265,14 @@ export function FacturaForm(props: Props) {
         </dl>
       </div>
 
+      {Object.keys(errores).length > 0 && (
+        <Alert>
+          <p className="font-medium">Revisa los campos marcados en rojo:</p>
+          <ul className="mt-1 list-inside list-disc">
+            {Object.values(errores).map((m) => <li key={m}>{m}</li>)}
+          </ul>
+        </Alert>
+      )}
       {error && <Alert>{error}</Alert>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onDone}>Cancelar</Button>
@@ -240,5 +295,30 @@ export function FacturaForm(props: Props) {
         </Modal>
       )}
     </form>
+  )
+}
+
+/** Envoltorio que localiza un campo para enfocarlo cuando tiene error. */
+function Campo({ k, className, children }: { k: string; className?: string; children: ReactNode }) {
+  return (
+    <div data-campo={k} className={className}>
+      {children}
+    </div>
+  )
+}
+
+/** Fila de línea de factura con sus mensajes de error debajo. */
+function Fila({ mensajes, columnas, children }: { mensajes: string[]; columnas: number; children: ReactNode }) {
+  return (
+    <>
+      <tr>{children}</tr>
+      {mensajes.length > 0 && (
+        <tr>
+          <td colSpan={columnas} className="pb-1 text-xs text-destructive">
+            {mensajes.join(' ')}
+          </td>
+        </tr>
+      )}
+    </>
   )
 }

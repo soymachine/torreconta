@@ -71,6 +71,7 @@ export interface SelectProps {
   placeholder?: string
   id?: string
   'aria-label'?: string
+  'aria-invalid'?: boolean
 }
 
 export function Select({ value, onChange, children, disabled, className, placeholder, id, ...rest }: SelectProps) {
@@ -79,7 +80,7 @@ export function Select({ value, onChange, children, disabled, className, placeho
     .map((c) => ({ value: String(c.props.value ?? texto(c.props.children)), label: texto(c.props.children), disabled: c.props.disabled }))
   return (
     <UiSelect value={aRadix(String(value))} onValueChange={(v) => onChange({ target: { value: deRadix(v) } })} disabled={disabled}>
-      <SelectTrigger id={id} aria-label={rest['aria-label']} className={cn('h-9 w-full bg-white', className)}>
+      <SelectTrigger id={id} aria-label={rest['aria-label']} aria-invalid={rest['aria-invalid'] || undefined} className={cn('h-9 w-full bg-white', className)}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent position="popper" className="max-h-80">

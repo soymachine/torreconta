@@ -1,4 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent } from 'react'
+import { Check, Copy } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from 'sonner'
 import { CuentaInput, centsAInput, errorMsg, Euros } from '../../components/shared'
 import { Alert, Button, Field, Input } from '../../components/base'
@@ -26,6 +28,20 @@ export function AsientoForm({ asiento, fechaInicial, onDone }: { asiento?: Asien
       : [filaVacia(), filaVacia()],
   )
   const [errores, setErrores] = useState<string[]>([])
+  const [copiado, setCopiado] = useState(false)
+  const idConcepto = useId()
+
+  /** Copia el concepto para pegarlo en los conceptos de las líneas. */
+  const copiarConcepto = async () => {
+    try {
+      await navigator.clipboard.writeText(concepto.trim())
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 1500)
+      toast.success('Concepto copiado: pégalo en las líneas con Ctrl+V')
+    } catch {
+      toast.error('El navegador no ha permitido copiar al portapapeles.')
+    }
+  }
   const [saving, setSaving] = useState(false)
 
   const lineas: (Linea | null)[] = filas.map((f) => {
@@ -76,9 +92,35 @@ export function AsientoForm({ asiento, fechaInicial, onDone }: { asiento?: Asien
         <Field label="Fecha">
           <Input type="date" value={fecha} min={`${anio}-01-01`} max={`${anio}-12-31`} onChange={(e) => setFecha(e.target.value)} />
         </Field>
-        <Field label="Concepto">
-          <Input value={concepto} onChange={(e) => setConcepto(e.target.value)} maxLength={300} placeholder="p. ej. Aportación de capital" />
-        </Field>
+        <div className="space-y-1.5">
+          <label htmlFor={idConcepto} className="block text-sm font-medium text-foreground">
+            Concepto
+          </label>
+          <div className="flex gap-2">
+            <Input
+              id={idConcepto}
+              value={concepto}
+              onChange={(e) => setConcepto(e.target.value)}
+              maxLength={300}
+              placeholder="p. ej. Aportación de capital"
+            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-9 shrink-0 px-0"
+                  onClick={copiarConcepto}
+                  disabled={!concepto.trim()}
+                  aria-label="Copiar concepto"
+                >
+                  {copiado ? <Check className="text-emerald-600" /> : <Copy />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copiar al portapapeles</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
       </div>
 
       <div className="overflow-x-auto">

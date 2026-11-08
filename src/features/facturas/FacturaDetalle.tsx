@@ -9,6 +9,7 @@ export function FacturaDetalle({ factura }: { factura: FacturaEmitida | FacturaR
   const nombres = new Map(cuentas.map((c) => [c.codigo, c.nombre]))
   const asiento = asientos.find((a) => a.id === factura.asientoId)
   const mov = 'cobro' in factura ? factura.cobro : factura.pago
+  const recibida = 'categoriaId' in factura
   const categoria = 'categoriaId' in factura ? categorias.find((c) => c.id === factura.categoriaId) : undefined
   return (
     <div className="space-y-5 text-sm">
@@ -23,13 +24,19 @@ export function FacturaDetalle({ factura }: { factura: FacturaEmitida | FacturaR
       </div>
       <table className="w-full">
         <thead className="bg-slate-50">
-          <tr><th className={th}>Concepto</th><th className={thNum}>Cant.</th><th className={thNum}>Precio</th><th className={thNum}>IVA</th><th className={thNum}>Importe</th></tr>
+          <tr>
+            <th className={th}>Concepto</th>
+            {!recibida && <th className={thNum}>Cant.</th>}
+            <th className={thNum}>{recibida ? 'Base imponible' : 'Precio'}</th>
+            <th className={thNum}>IVA</th>
+            <th className={thNum}>Importe</th>
+          </tr>
         </thead>
         <tbody>
           {factura.lineas.map((l, i) => (
             <tr key={i} className="border-t border-slate-100">
               <td className={td}>{l.concepto}</td>
-              <td className={tdNum}>{l.cantidad.toLocaleString('es-ES')}</td>
+              {!recibida && <td className={tdNum}>{l.cantidad.toLocaleString('es-ES')}</td>}
               <td className={tdNum}><Euros cents={l.precioCent} /></td>
               <td className={tdNum}>{l.ivaPct} %</td>
               <td className={tdNum}><Euros cents={importeLinea(l)} /></td>
@@ -37,10 +44,10 @@ export function FacturaDetalle({ factura }: { factura: FacturaEmitida | FacturaR
           ))}
         </tbody>
         <tfoot className="text-right">
-          <tr><td colSpan={4} className="px-3 pt-2 text-slate-500">Base</td><td className={tdNum}><Euros cents={factura.baseCent} /></td></tr>
-          <tr><td colSpan={4} className="px-3 text-slate-500">IVA</td><td className={tdNum}><Euros cents={factura.cuotaIvaCent} /></td></tr>
-          {factura.retencionCent !== 0 && <tr><td colSpan={4} className="px-3 text-slate-500">Retención {factura.irpfPct} %</td><td className={tdNum}>−<Euros cents={factura.retencionCent} /></td></tr>}
-          <tr className="font-semibold"><td colSpan={4} className="px-3">Total</td><td className={tdNum}><Euros cents={factura.totalCent} /></td></tr>
+          <tr><td colSpan={recibida ? 3 : 4} className="px-3 pt-2 text-slate-500">Base</td><td className={tdNum}><Euros cents={factura.baseCent} /></td></tr>
+          <tr><td colSpan={recibida ? 3 : 4} className="px-3 text-slate-500">IVA</td><td className={tdNum}><Euros cents={factura.cuotaIvaCent} /></td></tr>
+          {factura.retencionCent !== 0 && <tr><td colSpan={recibida ? 3 : 4} className="px-3 text-slate-500">Retención {factura.irpfPct} %</td><td className={tdNum}>−<Euros cents={factura.retencionCent} /></td></tr>}
+          <tr className="font-semibold"><td colSpan={recibida ? 3 : 4} className="px-3">Total</td><td className={tdNum}><Euros cents={factura.totalCent} /></td></tr>
         </tfoot>
       </table>
       {asiento && (
