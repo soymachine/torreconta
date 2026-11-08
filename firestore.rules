@@ -55,6 +55,20 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // Logotipo: imagen ya reducida en el navegador, guardada como dataURL
+      // WebP/PNG (sin Cloud Storage, que exige el plan Blaze).
+      match /config/logo {
+        allow read: if autorizado(eid);
+        allow write: if autorizado(eid)
+          && request.resource.data.keys().hasOnly(['dataUrl', 'ancho', 'alto', 'actualizado'])
+          && request.resource.data.dataUrl is string
+          && request.resource.data.dataUrl.size() <= 700000
+          && request.resource.data.dataUrl.matches('^data:image/(webp|png);base64,[A-Za-z0-9+/=]+$')
+          && request.resource.data.ancho is int && request.resource.data.ancho > 0 && request.resource.data.ancho <= 512
+          && request.resource.data.alto is int && request.resource.data.alto > 0 && request.resource.data.alto <= 512;
+        allow delete: if autorizado(eid);
+      }
+
       match /cuentas/{codigo} {
         function cuentaValida() {
           let d = request.resource.data;

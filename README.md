@@ -43,6 +43,7 @@ Planes: [`docs/plan.md`](docs/plan.md) (global), [`docs/plan-mvp.md`](docs/plan-
   3. Asientos de regularización (grupos 6 y 7 contra la 129) y de cierre a 31/12, y de apertura a 01/01 del año siguiente.
   4. El ejercicio queda bloqueado. Las facturas pendientes se cobran o pagan desde el ejercicio nuevo.
   5. «Reabrir ejercicio» deshace el cierre si hay que corregir algo.
+- **Logotipo**: se sube en «Empresa y ejercicios» y se muestra arriba a la izquierda y en las facturas impresas. Se reduce en el navegador a 512 px como máximo y se guarda en Firestore como imagen WebP/PNG, sin Cloud Storage (que exige el plan Blaze).
 - **Informes**: modelo 303 por trimestre, pérdidas y ganancias, balance de situación (comprueba que cuadra), gasto por categoría y panel resumen. Todo se exporta a CSV para Excel en español.
 ## Desarrollo local (sin proyecto real de Firebase)
 

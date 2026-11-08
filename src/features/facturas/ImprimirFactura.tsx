@@ -3,11 +3,13 @@ import { Euros, formatFecha } from '../../components/shared'
 import { Button } from '../../components/base'
 import { importeLinea } from '../../lib/contabilizacion'
 import { useLibros } from '../libros/LibrosProvider'
+import { useLogo } from '../empresa/useLogo'
 
 /** Vista de factura lista para imprimir o guardar como PDF desde el navegador. */
 export function ImprimirFactura() {
   const { id } = useParams()
   const { emitidas, empresa } = useLibros()
+  const logo = useLogo()
   const f = emitidas.find((x) => x.id === id)
   if (!f) return <p className="text-sm text-slate-500">Factura no encontrada.</p>
   return (
@@ -19,6 +21,9 @@ export function ImprimirFactura() {
       <article className="mx-auto max-w-3xl bg-white p-10 text-sm shadow-sm print:p-0 print:shadow-none">
         <header className="mb-10 flex justify-between gap-6">
           <div>
+            {logo && (
+              <img src={logo.dataUrl} alt="" className="mb-3 max-h-16 max-w-48 object-contain object-left" data-testid="logo-factura" />
+            )}
             <div className="text-lg font-semibold">{empresa.razonSocial}</div>
             <div>NIF {empresa.nif}</div>
             <div>{empresa.domicilio}</div>

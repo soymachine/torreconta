@@ -275,3 +275,21 @@ describe('cierre de ejercicio', () => {
     )
   })
 })
+
+describe('logotipo', () => {
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+  const ref = (db = ownerDb(), e = EMP) => doc(db, `empresas/${e}/config/logo`)
+  it('un miembro sube y borra el logo; otro usuario no', async () => {
+    await assertSucceeds(setDoc(ref(), { dataUrl: png, ancho: 1, alto: 1 }))
+    await assertSucceeds(getDoc(ref(env.authenticatedContext(SOCIO).firestore())))
+    await assertFails(getDoc(ref(intrusoDb())))
+    await assertFails(setDoc(ref(intrusoDb()), { dataUrl: png, ancho: 1, alto: 1 }))
+    await assertSucceeds(deleteDoc(ref()))
+  })
+  it('rechaza SVG, tamaños excesivos y campos extra', async () => {
+    await assertFails(setDoc(ref(), { dataUrl: 'data:image/svg+xml;base64,PHN2Zz4=', ancho: 1, alto: 1 }))
+    await assertFails(setDoc(ref(), { dataUrl: 'data:image/png;base64,' + 'A'.repeat(700000), ancho: 1, alto: 1 }))
+    await assertFails(setDoc(ref(), { dataUrl: png, ancho: 2000, alto: 1 }))
+    await assertFails(setDoc(ref(), { dataUrl: png, ancho: 1, alto: 1, script: 'x' }))
+  })
+})

@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { cerrarSesion, useAuth } from '../auth/AuthProvider'
 import { useEmpresa } from '../features/empresa/EmpresaProvider'
 import { useLibros } from '../features/libros/LibrosProvider'
+import { useLogo } from '../features/empresa/useLogo'
 
 const secciones: { titulo?: string; items: { to: string; label: string }[] }[] = [
   { items: [{ to: '/', label: 'Panel' }] },
@@ -39,6 +40,7 @@ const secciones: { titulo?: string; items: { to: string; label: string }[] }[] =
 export function Layout() {
   const empresa = useEmpresa()
   const { ejercicio } = useLibros()
+  const logo = useLogo()
   const auth = useAuth()
   const email = auth.status === 'autorizado' ? auth.user.email : null
 
@@ -46,7 +48,18 @@ export function Layout() {
     <div className="flex min-h-screen flex-col bg-slate-100 md:flex-row print:block print:bg-white">
       <aside className="border-b border-slate-200 bg-white md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:overflow-y-auto md:border-b-0 md:border-r print:hidden">
         <div className="px-5 py-4">
-          <div className="text-lg font-semibold text-slate-900">TorreConta</div>
+          {logo ? (
+            <NavLink to="/" className="mb-2 block" title={empresa.razonSocial}>
+              <img
+                src={logo.dataUrl}
+                alt={`Logotipo de ${empresa.razonSocial}`}
+                className="max-h-14 max-w-full object-contain object-left"
+                data-testid="logo-sidebar"
+              />
+            </NavLink>
+          ) : (
+            <div className="text-lg font-semibold text-slate-900">TorreConta</div>
+          )}
           <div className="truncate text-xs text-slate-500" title={empresa.razonSocial}>
             {empresa.razonSocial}
           </div>

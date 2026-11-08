@@ -32,14 +32,27 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
+      - name: Comprobar credenciales de despliegue
+        id: cred
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -n "$SA" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else
+            echo "::notice::Sin el secreto FIREBASE_SERVICE_ACCOUNT no se despliega automáticamente."
+            echo "ok=false" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/checkout@v4
+        if: steps.cred.outputs.ok == 'true'
       - uses: actions/setup-node@v4
+        if: steps.cred.outputs.ok == 'true'
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+        if: steps.cred.outputs.ok == 'true'
       - run: npm run build
+        if: steps.cred.outputs.ok == 'true'
       - name: Deploy a Firebase (Hosting + reglas e índices de Firestore)
+        if: steps.cred.outputs.ok == 'true'
         env:
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |

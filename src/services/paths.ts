@@ -9,6 +9,7 @@ import { db } from '../firebase'
 const e = (eid: string, ...rest: string[]) => ['empresas', eid, ...rest] as const
 
 export const empresaRef = (eid: string) => doc(db, ...e(eid, 'config', 'empresa'))
+export const logoRef = (eid: string) => doc(db, ...e(eid, 'config', 'logo'))
 export const cuentasCol = (eid: string) => collection(db, ...e(eid, 'cuentas'))
 export const cuentaRef = (eid: string, codigo: string) => doc(db, ...e(eid, 'cuentas', codigo))
 export const ejerciciosCol = (eid: string) => collection(db, ...e(eid, 'ejercicios'))

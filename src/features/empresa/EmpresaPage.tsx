@@ -9,6 +9,7 @@ import { useLibros } from '../libros/LibrosProvider'
 import { actualizarEmpresa } from '../../services/empresa'
 import { EmpresaForm } from './EmpresaForm'
 import { useEmpresa } from './EmpresaProvider'
+import { LogoCard } from './LogoCard'
 
 export function EmpresaPage() {
   const eid = useEmpresaId()
@@ -21,6 +22,7 @@ export function EmpresaPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold text-slate-900">Empresa y ejercicios</h1>
+      <LogoCard />
       <Card className="max-w-2xl">
         {msg && (
           <div className="mb-4">
