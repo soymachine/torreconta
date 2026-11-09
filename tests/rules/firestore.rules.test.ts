@@ -167,13 +167,15 @@ describe('terceros y categorías', () => {
     categoriaPorDefectoId: null,
     activo: true,
   }
-  it('crea un tercero válido y no deja cambiar su subcuenta ni borrarlo', async () => {
+  it('crea un tercero válido, no deja cambiar su subcuenta y solo un miembro lo borra', async () => {
     const r = doc(ownerDb(), `empresas/${EMP}/terceros/t1`)
     await assertSucceeds(setDoc(r, tercero))
     await assertSucceeds(updateDoc(r, { nombre: 'Cliente Nuevo SA' }))
     await assertFails(updateDoc(r, { cuenta: '4300002' }))
     await assertFails(updateDoc(r, { cuenta: '4000002' }))
-    await assertFails(deleteDoc(r))
+    await assertFails(deleteDoc(doc(intrusoDb(), `empresas/${EMP}/terceros/t1`)))
+    await assertSucceeds(updateDoc(r, { activo: false }))
+    await assertSucceeds(deleteDoc(r))
   })
   it('rechaza terceros con subcuenta incorrecta o tipo desconocido', async () => {
     await assertFails(setDoc(doc(ownerDb(), `empresas/${EMP}/terceros/t2`), { ...tercero, cuenta: '5720001' }))

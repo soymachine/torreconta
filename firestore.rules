@@ -155,7 +155,9 @@ service cloud.firestore {
         allow update: if autorizado(eid) && terceroValido()
           && ((request.resource.data.cuenta == resource.data.cuenta && request.resource.data.tipo == resource.data.tipo)
               || (request.resource.data.cuenta != resource.data.cuenta && request.resource.data.tipo != resource.data.tipo));
-        allow delete: if false;
+        // Solo se eliminan terceros sin movimientos (lo comprueba la app antes);
+        // las facturas guardan copia de su nombre, NIF y subcuenta.
+        allow delete: if autorizado(eid);
       }
 
       match /categorias/{id} {

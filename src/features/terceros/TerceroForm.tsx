@@ -57,7 +57,7 @@ export function TerceroForm({
     : uso === 'comprobando'
       ? 'Comprobando si tiene movimientos…'
       : conMovimientos
-        ? `Subcuenta ${tercero.cuenta}. Ya tiene ${uso && uso.facturas ? 'facturas' : 'asientos'}: no se puede cambiar el tipo. Si es un error, crea uno nuevo del tipo correcto y desactiva este.`
+        ? `Subcuenta ${tercero.cuenta}. Ya tiene ${uso && uso.facturas ? 'facturas' : 'asientos'}: no se puede cambiar el tipo. Si es un error, crea uno nuevo del tipo correcto y desactiva este desde «Eliminar» en el listado.`
         : `Subcuenta ${tercero.cuenta}`
 
   const submit = async (e: FormEvent) => {

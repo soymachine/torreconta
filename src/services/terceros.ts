@@ -82,3 +82,23 @@ export async function cambiarTipoTercero(
   })
   return actualizado
 }
+
+/**
+ * Elimina un tercero sin movimientos (alta por error o que no se llegó a
+ * usar). Su subcuenta no se borra: queda desactivada en el plan de cuentas.
+ */
+export async function eliminarTercero(eid: string, tercero: Tercero) {
+  const uso = await usoTercero(eid, tercero)
+  if (uso.facturas || uso.asientos)
+    throw new Error('Este tercero tiene facturas o asientos y no se puede eliminar. Puedes desactivarlo.')
+  await runTransaction(db, async (tx) => {
+    const cuenta = await tx.get(cuentaRef(eid, tercero.cuenta))
+    if (cuenta.exists()) tx.update(cuentaRef(eid, tercero.cuenta), { activa: false })
+    tx.delete(terceroRef(eid, tercero.id))
+  })
+}
+
+/** Desactivar oculta el tercero al crear facturas, pero conserva su historial. */
+export async function cambiarActivoTercero(eid: string, tercero: Tercero, activo: boolean) {
+  await updateDoc(terceroRef(eid, tercero.id), { activo })
+}
