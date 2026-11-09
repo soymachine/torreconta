@@ -1,24 +1,9 @@
-import { runTransaction, updateDoc } from 'firebase/firestore'
+import { getDocs, limit, query, runTransaction, updateDoc, where } from 'firebase/firestore'
 import { db } from '../firebase'
-import type { Cuenta, Naturaleza } from '../lib/cuentas'
+import type { Cuenta } from '../lib/cuentas'
+import { CUENTA_TIPO, siguienteSubcuenta } from '../lib/terceros'
 import type { Tercero, TipoTercero } from '../lib/tipos'
-import { cuentaRef, nuevoId, terceroRef, tercerosCol } from './paths'
-
-const CUENTA_TIPO: Record<TipoTercero, { prefijo: string; naturaleza: Naturaleza }> = {
-  cliente: { prefijo: '430', naturaleza: 'activo' },
-  proveedor: { prefijo: '400', naturaleza: 'pasivo' },
-  acreedor: { prefijo: '410', naturaleza: 'pasivo' },
-}
-
-/** Siguiente subcuenta libre de 7 dígitos: 4300001, 4300002… */
-export function siguienteSubcuenta(tipo: TipoTercero, cuentas: readonly Pick<Cuenta, 'codigo'>[]): string {
-  const { prefijo } = CUENTA_TIPO[tipo]
-  let max = 0
-  for (const c of cuentas)
-    if (c.codigo.length === 7 && c.codigo.startsWith(prefijo)) max = Math.max(max, Number(c.codigo.slice(3)))
-  if (max >= 9999) throw new Error('No quedan subcuentas libres.')
-  return prefijo + String(max + 1).padStart(4, '0')
-}
+import { asientosCol, cuentaRef, emitidasCol, nuevoId, recibidasCol, terceroRef, tercerosCol } from './paths'
 
 export type DatosTercero = Omit<Tercero, 'id' | 'cuenta' | 'activo'>
 
@@ -45,4 +30,55 @@ export async function actualizarTercero(eid: string, tercero: Tercero, cambios: 
   await updateDoc(terceroRef(eid, tercero.id), cambios)
   if (cambios.nombre && cambios.nombre !== tercero.nombre)
     await updateDoc(cuentaRef(eid, tercero.cuenta), { nombre: cambios.nombre })
+}
+
+export interface UsoTercero {
+  facturas: boolean
+  asientos: boolean
+}
+
+/** ¿Tiene el tercero facturas o asientos en algún ejercicio? */
+export async function usoTercero(eid: string, tercero: Pick<Tercero, 'id' | 'cuenta'>): Promise<UsoTercero> {
+  const [emitidas, recibidas, asientos] = await Promise.all([
+    getDocs(query(emitidasCol(eid), where('terceroId', '==', tercero.id), limit(1))),
+    getDocs(query(recibidasCol(eid), where('terceroId', '==', tercero.id), limit(1))),
+    getDocs(query(asientosCol(eid), where('cuentas', 'array-contains', tercero.cuenta), limit(1))),
+  ])
+  return { facturas: !emitidas.empty || !recibidas.empty, asientos: !asientos.empty }
+}
+
+/**
+ * Corrige el tipo de un tercero dado de alta por error. Solo se permite si no
+ * tiene movimientos: le asigna una subcuenta nueva del tipo correcto y
+ * desactiva la anterior (las cuentas no se borran).
+ */
+export async function cambiarTipoTercero(
+  eid: string,
+  tercero: Tercero,
+  nuevoTipo: TipoTercero,
+  cuentas: readonly Cuenta[],
+): Promise<Tercero> {
+  if (nuevoTipo === tercero.tipo) return tercero
+  const uso = await usoTercero(eid, tercero)
+  if (uso.facturas || uso.asientos)
+    throw new Error('Este tercero ya tiene facturas o asientos: no se puede cambiar su tipo. Crea uno nuevo del tipo correcto.')
+  const codigo = siguienteSubcuenta(nuevoTipo, cuentas)
+  const actualizado: Tercero = {
+    ...tercero,
+    tipo: nuevoTipo,
+    cuenta: codigo,
+    categoriaPorDefectoId: nuevoTipo === 'cliente' ? null : tercero.categoriaPorDefectoId,
+  }
+  await runTransaction(db, async (tx) => {
+    const existente = await tx.get(cuentaRef(eid, codigo))
+    if (existente.exists()) throw new Error(`La subcuenta ${codigo} ya existe. Inténtalo de nuevo.`)
+    tx.set(cuentaRef(eid, codigo), { codigo, nombre: tercero.nombre, naturaleza: CUENTA_TIPO[nuevoTipo].naturaleza, activa: true })
+    tx.update(cuentaRef(eid, tercero.cuenta), { activa: false })
+    tx.update(terceroRef(eid, tercero.id), {
+      tipo: actualizado.tipo,
+      cuenta: actualizado.cuenta,
+      categoriaPorDefectoId: actualizado.categoriaPorDefectoId,
+    })
+  })
+  return actualizado
 }

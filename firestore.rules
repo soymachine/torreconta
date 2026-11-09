@@ -143,14 +143,18 @@ service cloud.firestore {
             && d.nombre is string && d.nombre.size() >= 1 && d.nombre.size() <= 150
             && textoMax(d.nif, 20) && textoMax(d.email, 150) && textoMax(d.domicilio, 300)
             && d.cuenta is string && d.cuenta.matches('^4[0-9]{6}$')
+            // La subcuenta cuelga de la cuenta de su tipo: 430 clientes, 400 proveedores, 410 acreedores.
+            && d.cuenta[0:3] == {'cliente': '430', 'proveedor': '400', 'acreedor': '410'}[d.tipo]
             && (d.categoriaPorDefectoId == null || d.categoriaPorDefectoId is string)
             && d.activo is bool;
         }
         allow read: if autorizado(eid);
         allow create: if autorizado(eid) && terceroValido();
+        // Tipo y subcuenta solo cambian juntos (corrección de un alta errónea;
+        // la app comprueba antes que el tercero no tenga movimientos).
         allow update: if autorizado(eid) && terceroValido()
-          && request.resource.data.cuenta == resource.data.cuenta
-          && request.resource.data.tipo == resource.data.tipo;
+          && ((request.resource.data.cuenta == resource.data.cuenta && request.resource.data.tipo == resource.data.tipo)
+              || (request.resource.data.cuenta != resource.data.cuenta && request.resource.data.tipo != resource.data.tipo));
         allow delete: if false;
       }
 

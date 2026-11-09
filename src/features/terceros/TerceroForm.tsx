@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 import { errorMsg } from '../../components/shared'
 import { Alert, Button, Field, Input, Select } from '../../components/base'
 import { isValidNif, normalizeNif } from '../../lib/nif'
 import type { Tercero, TipoTercero } from '../../lib/tipos'
-import { actualizarTercero, crearTercero } from '../../services/terceros'
+import { siguienteSubcuenta } from '../../lib/terceros'
+import { actualizarTercero, cambiarTipoTercero, crearTercero, usoTercero, type UsoTercero } from '../../services/terceros'
 import { useLibros } from '../libros/LibrosProvider'
 
 export const TIPO_LABEL: Record<TipoTercero, string> = {
@@ -35,6 +36,30 @@ export function TerceroForm({
   const [saving, setSaving] = useState(false)
   const tipos = tiposPermitidos ?? (['cliente', 'proveedor', 'acreedor'] as TipoTercero[])
 
+  // Al editar, el tipo solo se puede corregir si el tercero aún no tiene movimientos.
+  const [uso, setUso] = useState<UsoTercero | 'comprobando' | null>(tercero ? 'comprobando' : null)
+  useEffect(() => {
+    if (!tercero) return
+    let vigente = true
+    usoTercero(eid, tercero)
+      .then((u) => vigente && setUso(u))
+      .catch(() => vigente && setUso({ facturas: true, asientos: true }))
+    return () => {
+      vigente = false
+    }
+  }, [eid, tercero])
+  const conMovimientos = uso !== null && uso !== 'comprobando' && (uso.facturas || uso.asientos)
+  const tipoBloqueado = !!tercero && (uso === 'comprobando' || conMovimientos)
+  const cambiaTipo = !!tercero && tipo !== tercero.tipo
+  const nuevaCuenta = cambiaTipo ? siguienteSubcuenta(tipo, cuentas) : null
+  const ayudaTipo = !tercero
+    ? 'Se le asignará su propia subcuenta (430…, 400… o 410…)'
+    : uso === 'comprobando'
+      ? 'Comprobando si tiene movimientos…'
+      : conMovimientos
+        ? `Subcuenta ${tercero.cuenta}. Ya tiene ${uso && uso.facturas ? 'facturas' : 'asientos'}: no se puede cambiar el tipo. Si es un error, crea uno nuevo del tipo correcto y desactiva este.`
+        : `Subcuenta ${tercero.cuenta}`
+
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -53,8 +78,10 @@ export function TerceroForm({
     setSaving(true)
     try {
       if (tercero) {
-        await actualizarTercero(eid, tercero, datos)
-        onDone({ ...tercero, ...datos })
+        const base = cambiaTipo ? await cambiarTipoTercero(eid, tercero, tipo, cuentas) : tercero
+        await actualizarTercero(eid, base, datos)
+        if (cambiaTipo) toast.success(`${datos.nombre} ahora es ${TIPO_LABEL[tipo].toLowerCase()} (subcuenta ${base.cuenta})`)
+        onDone({ ...base, ...datos })
       } else {
         const nuevo = await crearTercero(eid, { ...datos, tipo }, cuentas)
         toast.success(`${nuevo.nombre} creado con la subcuenta ${nuevo.cuenta}`)
@@ -69,8 +96,8 @@ export function TerceroForm({
 
   return (
     <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2" noValidate>
-      <Field label="Tipo" hint={tercero ? `Subcuenta ${tercero.cuenta}` : 'Se le asignará su propia subcuenta (430…, 400… o 410…)'}>
-        <Select value={tipo} onChange={(e) => setTipo(e.target.value as TipoTercero)} disabled={!!tercero}>
+      <Field label="Tipo" hint={ayudaTipo}>
+        <Select value={tipo} onChange={(e) => setTipo(e.target.value as TipoTercero)} disabled={tipoBloqueado} aria-label="Tipo">
           {tipos.map((t) => <option key={t} value={t}>{TIPO_LABEL[t]}</option>)}
         </Select>
       </Field>
@@ -95,6 +122,15 @@ export function TerceroForm({
             ))}
           </Select>
         </Field>
+      )}
+      {cambiaTipo && tercero && (
+        <div className="sm:col-span-2" data-testid="aviso-cambio-tipo">
+          <Alert tone="info">
+            Pasará de {TIPO_LABEL[tercero.tipo].toLowerCase()} a {TIPO_LABEL[tipo].toLowerCase()}: se le asignará la subcuenta{' '}
+            <strong className="font-mono">{nuevaCuenta}</strong> y la actual <span className="font-mono">{tercero.cuenta}</span> quedará
+            desactivada en el plan de cuentas.
+          </Alert>
+        </div>
       )}
       {error && <div className="sm:col-span-2"><Alert>{error}</Alert></div>}
       <div className="flex justify-end gap-2 sm:col-span-2">

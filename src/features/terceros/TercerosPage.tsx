@@ -1,14 +1,20 @@
+import { FileDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
 import { Badge, Euros, Modal, PageHeader, TableWrap, td, tdNum, th, thNum } from '../../components/shared'
 import { Button, Input, Select } from '../../components/base'
 import { paraInformes, sumasPorCuenta } from '../../lib/saldos'
 import type { Tercero, TipoTercero } from '../../lib/tipos'
 import { useLibros } from '../libros/LibrosProvider'
+import { useLogo } from '../empresa/useLogo'
+import { exportarTercerosPdf } from './exportarPdf'
 import { TerceroForm, TIPO_LABEL } from './TerceroForm'
 
 export function TercerosPage() {
-  const { terceros, categorias, asientos } = useLibros()
+  const { terceros, categorias, asientos, empresa, anio } = useLibros()
+  const logo = useLogo()
+  const [exportando, setExportando] = useState(false)
   const [tipo, setTipo] = useState<'' | TipoTercero>('')
   const [q, setQ] = useState('')
   const [editando, setEditando] = useState<Tercero | 'nuevo' | null>(null)
@@ -21,11 +27,45 @@ export function TercerosPage() {
       (!q || t.nombre.toLowerCase().includes(q.toLowerCase()) || t.nif.includes(q.toUpperCase()) || t.cuenta.startsWith(q)),
   )
 
+  const saldoDe = (t: Tercero) => {
+    const s = sumas.get(t.cuenta)
+    return s ? s.debe - s.haber : 0
+  }
+
+  const exportarPdf = async () => {
+    setExportando(true)
+    try {
+      const nombresTipo = { '': 'Todos', cliente: 'Clientes', proveedor: 'Proveedores', acreedor: 'Acreedores' }
+      await exportarTercerosPdf({
+        empresa,
+        anio,
+        logo,
+        filtro: nombresTipo[tipo] + (q.trim() ? ` que coinciden con «${q.trim()}»` : ''),
+        filas: visibles.map((t) => ({
+          tercero: t,
+          categoria: t.categoriaPorDefectoId ? catNombre.get(t.categoriaPorDefectoId) ?? '' : '',
+          saldoCent: saldoDe(t),
+        })),
+      })
+    } catch {
+      toast.error('No se ha podido generar el PDF.')
+    } finally {
+      setExportando(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title="Clientes y proveedores"
-        actions={<Button onClick={() => setEditando('nuevo')}>Nuevo</Button>}
+        actions={
+          <>
+            <Button variant="secondary" onClick={exportarPdf} disabled={exportando || visibles.length === 0}>
+              <FileDown /> {exportando ? 'Generando…' : 'Exportar PDF'}
+            </Button>
+            <Button onClick={() => setEditando('nuevo')}>Nuevo</Button>
+          </>
+        }
       />
       <div className="mb-4 flex flex-wrap gap-3">
         <Select value={tipo} onChange={(e) => setTipo(e.target.value as typeof tipo)} className="max-w-xs" aria-label="Tipo">
@@ -51,8 +91,7 @@ export function TercerosPage() {
           </thead>
           <tbody>
             {visibles.map((t) => {
-              const s = sumas.get(t.cuenta)
-              const saldo = s ? s.debe - s.haber : 0
+              const saldo = saldoDe(t)
               return (
                 <tr key={t.id} className="border-t border-slate-100">
                   <td className={`${td} font-medium`}>{t.nombre}</td>

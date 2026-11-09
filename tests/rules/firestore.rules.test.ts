@@ -172,6 +172,7 @@ describe('terceros y categorías', () => {
     await assertSucceeds(setDoc(r, tercero))
     await assertSucceeds(updateDoc(r, { nombre: 'Cliente Nuevo SA' }))
     await assertFails(updateDoc(r, { cuenta: '4300002' }))
+    await assertFails(updateDoc(r, { cuenta: '4000002' }))
     await assertFails(deleteDoc(r))
   })
   it('rechaza terceros con subcuenta incorrecta o tipo desconocido', async () => {
@@ -291,5 +292,21 @@ describe('logotipo', () => {
     await assertFails(setDoc(ref(), { dataUrl: 'data:image/png;base64,' + 'A'.repeat(700000), ancho: 1, alto: 1 }))
     await assertFails(setDoc(ref(), { dataUrl: png, ancho: 2000, alto: 1 }))
     await assertFails(setDoc(ref(), { dataUrl: png, ancho: 1, alto: 1, script: 'x' }))
+  })
+})
+
+describe('cambio de tipo de un tercero', () => {
+  const t = { tipo: 'cliente', nombre: 'Equivocado SL', nif: '', email: '', domicilio: '', cuenta: '4300002', categoriaPorDefectoId: null, activo: true }
+  const ref = () => doc(ownerDb(), `empresas/${EMP}/terceros/t9`)
+  it('cliente → proveedor cambiando a una subcuenta 400', async () => {
+    await assertSucceeds(setDoc(ref(), t))
+    await assertSucceeds(updateDoc(ref(), { tipo: 'proveedor', cuenta: '4000002' }))
+    await assertSucceeds(updateDoc(ref(), { tipo: 'acreedor', cuenta: '4100001' }))
+  })
+  it('rechaza tipo y subcuenta incoherentes', async () => {
+    await assertSucceeds(setDoc(ref(), t))
+    await assertFails(updateDoc(ref(), { tipo: 'proveedor' }))
+    await assertFails(updateDoc(ref(), { tipo: 'proveedor', cuenta: '4300003' }))
+    await assertFails(setDoc(doc(ownerDb(), `empresas/${EMP}/terceros/t10`), { ...t, cuenta: '4000001' }))
   })
 })
