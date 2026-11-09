@@ -4,6 +4,7 @@
  */
 import { formatEuros } from '../../lib/money'
 import type { Logo } from '../../lib/logo'
+import { dibujarLogo, piePaginas, textoPdf as limpio } from '../../lib/pdf'
 import type { Tercero } from '../../lib/tipos'
 
 export interface FilaPdfTercero {
@@ -22,25 +23,6 @@ export interface DatosPdfTerceros {
 
 const TIPO: Record<Tercero['tipo'], string> = { cliente: 'Cliente', proveedor: 'Proveedor', acreedor: 'Acreedor' }
 
-// Las fuentes estándar del PDF no tienen el espacio fino que usa Intl en algunos formatos.
-const limpio = (t: string) => t.replace(/[  ]/g, ' ')
-
-/** jsPDF no admite WebP en todos los visores: se convierte el logo a PNG. */
-async function logoPng(logo: Logo): Promise<string | null> {
-  try {
-    const img = new Image()
-    img.src = logo.dataUrl
-    await img.decode()
-    const c = document.createElement('canvas')
-    c.width = img.naturalWidth
-    c.height = img.naturalHeight
-    c.getContext('2d')!.drawImage(img, 0, 0)
-    return c.toDataURL('image/png')
-  } catch {
-    return null
-  }
-}
-
 export function nombreArchivoPdf(filtro: string, fecha = new Date()): string {
   const f = fecha.toISOString().slice(0, 10)
   const sufijo = filtro.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -50,19 +32,10 @@ export function nombreArchivoPdf(filtro: string, fecha = new Date()): string {
 export async function exportarTercerosPdf(d: DatosPdfTerceros): Promise<void> {
   const [{ jsPDF }, { autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')])
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const ancho = doc.internal.pageSize.getWidth()
   const margen = 12
   let y = margen
 
-  if (d.logo) {
-    const png = await logoPng(d.logo)
-    if (png) {
-      const alto = 12
-      const anchoLogo = Math.min(50, (d.logo.ancho / d.logo.alto) * alto)
-      doc.addImage(png, 'PNG', margen, y, anchoLogo, alto)
-      y += alto + 3
-    }
-  }
+  y = await dibujarLogo(doc, d.logo, margen, y)
 
   doc.setFont('helvetica', 'bold').setFontSize(14).text('Clientes y proveedores', margen, y + 4)
   doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(90)
@@ -100,12 +73,6 @@ export async function exportarTercerosPdf(d: DatosPdfTerceros): Promise<void> {
     },
   })
 
-  const paginas = doc.getNumberOfPages()
-  for (let i = 1; i <= paginas; i++) {
-    doc.setPage(i)
-    doc.setFontSize(7.5).setTextColor(120)
-    doc.text(`Página ${i} de ${paginas}`, ancho - margen, doc.internal.pageSize.getHeight() - 7, { align: 'right' })
-    doc.text('TorreConta', margen, doc.internal.pageSize.getHeight() - 7)
-  }
+  piePaginas(doc, margen)
   doc.save(nombreArchivoPdf(d.filtro))
 }

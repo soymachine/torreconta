@@ -32,6 +32,7 @@ const secciones: { titulo?: string; items: { to: string; label: string }[] }[] =
       { to: '/informes/pyg', label: 'Pérdidas y ganancias' },
       { to: '/informes/balance', label: 'Balance' },
       { to: '/informes/gasto-categorias', label: 'Gasto por categoría' },
+      { to: '/informes/347', label: 'Operaciones con terceros (347)' },
     ],
   },
   { items: [{ to: '/empresa', label: 'Empresa y ejercicios' }] },

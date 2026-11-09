@@ -31,6 +31,7 @@ const PygPage = lazyPage(() => import('./features/informes/PygPage'), 'PygPage')
 const IvaPage = lazyPage(() => import('./features/informes/IvaPage'), 'IvaPage')
 const CierrePage = lazyPage(() => import('./features/ejercicios/CierrePage'), 'CierrePage')
 const CierreHechoPage = lazyPage(() => import('./features/ejercicios/CierrePage'), 'CierreHechoPage')
+const Modelo347Page = lazyPage(() => import('./features/informes/Modelo347Page'), 'Modelo347Page')
 const GastoCategoriasPage = lazyPage(() => import('./features/informes/GastoCategoriasPage'), 'GastoCategoriasPage')
 
 function NoAutorizado({ email }: { email: string | null }) {
@@ -78,6 +79,7 @@ function AppAutorizada() {
             <Route path="/informes/pyg" element={<PygPage />} />
             <Route path="/informes/balance" element={<BalancePage />} />
             <Route path="/informes/gasto-categorias" element={<GastoCategoriasPage />} />
+            <Route path="/informes/347" element={<Modelo347Page />} />
             <Route path="/ejercicios/cierre" element={<CierrePage />} />
             <Route path="/ejercicios/cierre/hecho" element={<CierreHechoPage />} />
             <Route path="/empresa" element={<EmpresaPage />} />
