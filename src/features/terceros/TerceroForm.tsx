@@ -8,6 +8,9 @@ import { siguienteSubcuenta, validarCodigoTercero } from '../../lib/terceros'
 import { cuentasDeGasto } from '../../lib/cuentas'
 import { useConfirmar } from '../../components/Confirmar'
 import { SubcuentaGastoSelect } from '../facturas/SubcuentaGastoSelect'
+import { CategoriaGastoSelect } from '../facturas/CategoriaGastoSelect'
+import { raizDeSeleccion, valorCategoria } from '../../lib/categoriasGasto'
+import { asegurarCategoria } from '../../services/categorias'
 import { actualizarTercero, cambiarCodigoTercero, cambiarTipoTercero, crearTercero, usoTercero, type UsoTercero } from '../../services/terceros'
 import { useLibros } from '../libros/LibrosProvider'
 
@@ -34,7 +37,7 @@ export function TerceroForm({
   const [nif, setNif] = useState(tercero?.nif ?? '')
   const [email, setEmail] = useState(tercero?.email ?? '')
   const [domicilio, setDomicilio] = useState(tercero?.domicilio ?? '')
-  const [categoriaId, setCategoriaId] = useState(tercero?.categoriaPorDefectoId ?? '')
+  const [seleccionCat, setSeleccionCat] = useState(tercero?.categoriaPorDefectoId ? valorCategoria(tercero.categoriaPorDefectoId) : '')
   const [cuentaGastoDef, setCuentaGastoDef] = useState(tercero?.cuentaGastoPorDefecto ?? '')
   // Código de la subcuenta: vacío = el automático (o el actual al editar).
   const [codigoEditado, setCodigoEditado] = useState('')
@@ -64,9 +67,9 @@ export function TerceroForm({
     ? validarCodigoTercero(tipo, codigoFinal, cuentas, tercero && !cambiaTipo ? tercero.cuenta : undefined)
     : null
   const nuevaCuenta = cambiaTipo ? codigoFinal : null
-  const categoriaSel = categorias.find((c) => c.id === categoriaId)
-  const subcuentaValida = !!categoriaSel && cuentasDeGasto(categoriaSel.cuentaGasto, cuentas).length > 1
-    && cuentasDeGasto(categoriaSel.cuentaGasto, cuentas).some((c) => c.codigo === cuentaGastoDef)
+  const raizCat = raizDeSeleccion(seleccionCat, categorias)
+  const subcuentaValida = !!raizCat && cuentasDeGasto(raizCat, cuentas).length > 1
+    && cuentasDeGasto(raizCat, cuentas).some((c) => c.codigo === cuentaGastoDef)
   const ayudaTipo = !tercero
     ? 'Se le asignará su propia subcuenta (430…, 400… o 410…)'
     : uso === 'comprobando'
@@ -88,10 +91,16 @@ export function TerceroForm({
       nif: n,
       email: email.trim(),
       domicilio: domicilio.trim(),
-      categoriaPorDefectoId: tipo === 'cliente' ? null : categoriaId || null,
+      categoriaPorDefectoId: null as string | null,
       cuentaGastoPorDefecto: tipo === 'cliente' || !subcuentaValida ? null : cuentaGastoDef,
     }
     if (errorCodigo) return setError(errorCodigo)
+    try {
+      // Si se eligió una cuenta mayor sin categoría, se crea su categoría.
+      if (tipo !== 'cliente' && seleccionCat) datos.categoriaPorDefectoId = (await asegurarCategoria(eid, seleccionCat, categorias, cuentas)).id
+    } catch (err) {
+      return setError(errorMsg(err))
+    }
     setSaving(true)
     try {
       if (tercero) {
@@ -164,18 +173,20 @@ export function TerceroForm({
       </Field>
       {tipo !== 'cliente' && (
         <Field label="Categoría de gasto por defecto" hint="Se preseleccionará en sus facturas" className="sm:col-span-2">
-          <Select value={categoriaId} onChange={(e) => { setCategoriaId(e.target.value); setCuentaGastoDef('') }} aria-label="Categoría de gasto por defecto">
-            <option value="">— Ninguna —</option>
-            {categorias.filter((c) => c.activa || c.id === categoriaId).map((c) => (
-              <option key={c.id} value={c.id}>{c.nombre} ({c.cuentaGasto})</option>
-            ))}
-          </Select>
+          <CategoriaGastoSelect
+            value={seleccionCat}
+            onChange={(v) => { setSeleccionCat(v); setCuentaGastoDef('') }}
+            categorias={categorias}
+            cuentas={cuentas}
+            vacio="— Ninguna —"
+            aria-label="Categoría de gasto por defecto"
+          />
         </Field>
       )}
       {tipo !== 'cliente' && (
         <div className="sm:col-span-2">
           <SubcuentaGastoSelect
-            categoria={categoriaSel}
+            raiz={raizCat}
             cuentas={cuentas}
             value={cuentaGastoDef}
             onChange={setCuentaGastoDef}

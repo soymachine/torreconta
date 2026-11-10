@@ -65,7 +65,7 @@ function FusionarForm({ origen, onDone }: { origen: Categoria; onDone: () => voi
     e.preventDefault()
     const destino = categorias.find((c) => c.id === destinoId)
     if (!destino) return setError('Elige la categoría de destino.')
-    if (faltaSubcuenta(destino, cuentas, subcuenta)) return setError('Elige la subcuenta de gasto.')
+    if (faltaSubcuenta(destino.cuentaGasto, cuentas, subcuenta)) return setError('Elige la subcuenta de gasto.')
     setSaving(true)
     try {
       await reasignarCategoria(eid, afectadas, destino, cuentas, subcuenta || undefined)
@@ -91,7 +91,7 @@ function FusionarForm({ origen, onDone }: { origen: Categoria; onDone: () => voi
           ))}
         </Select>
       </Field>
-      <SubcuentaGastoSelect categoria={categorias.find((c) => c.id === destinoId)} cuentas={cuentas} value={subcuenta} onChange={setSubcuenta} />
+      <SubcuentaGastoSelect raiz={categorias.find((c) => c.id === destinoId)?.cuentaGasto} cuentas={cuentas} value={subcuenta} onChange={setSubcuenta} />
       {error && <Alert>{error}</Alert>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onDone}>Cancelar</Button>

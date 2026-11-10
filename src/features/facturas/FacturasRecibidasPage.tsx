@@ -12,6 +12,9 @@ import { useLibros } from '../libros/LibrosProvider'
 import { FacturaDetalle } from './FacturaDetalle'
 import { FacturaForm } from './FacturaForm'
 import { faltaSubcuenta, SubcuentaGastoSelect } from './SubcuentaGastoSelect'
+import { CategoriaGastoSelect } from './CategoriaGastoSelect'
+import { raizDeSeleccion } from '../../lib/categoriasGasto'
+import { asegurarCategoria } from '../../services/categorias'
 import { TesoreriaForm } from './TesoreriaForm'
 
 type ModalState = { tipo: 'nueva' | 'reasignar' } | { tipo: 'editar' | 'pagar'; f: FacturaRecibida } | null
@@ -67,9 +70,10 @@ export function FacturasRecibidasPage() {
     })
 
   const reasignar = async () => {
-    const cat = catPorId.get(destino)
-    if (!cat) return
+    if (!destino) return
     await accion(async () => {
+      // Si se eligió una cuenta mayor sin categoría, se crea su categoría.
+      const cat = await asegurarCategoria(eid, destino, categorias, cuentas)
       await reasignarCategoria(eid, seleccionadas, cat, cuentas, subcuentaDestino || undefined)
       toast.success(`${seleccionadas.length} facturas movidas a «${cat.nombre}»`)
       setSeleccion(new Set())
@@ -212,15 +216,18 @@ export function FacturasRecibidasPage() {
           <div className="space-y-4">
             <p className="text-sm text-slate-600">Se regenerarán sus asientos para llevar el gasto a la cuenta de la nueva categoría.</p>
             <Field label="Nueva categoría">
-              <Select value={destino} onChange={(e) => { setDestino(e.target.value); setSubcuentaDestino('') }} aria-label="Nueva categoría">
-                <option value="">— Elige —</option>
-                {categorias.filter((c) => c.activa).map((c) => <option key={c.id} value={c.id}>{c.nombre} ({c.cuentaGasto})</option>)}
-              </Select>
+              <CategoriaGastoSelect
+                value={destino}
+                onChange={(v) => { setDestino(v); setSubcuentaDestino('') }}
+                categorias={categorias}
+                cuentas={cuentas}
+                aria-label="Nueva categoría"
+              />
             </Field>
-            <SubcuentaGastoSelect categoria={catPorId.get(destino)} cuentas={cuentas} value={subcuentaDestino} onChange={setSubcuentaDestino} />
+            <SubcuentaGastoSelect raiz={raizDeSeleccion(destino, categorias)} cuentas={cuentas} value={subcuentaDestino} onChange={setSubcuentaDestino} />
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setModal(null)}>Cancelar</Button>
-              <Button onClick={reasignar} disabled={!destino || faltaSubcuenta(catPorId.get(destino), cuentas, subcuentaDestino)}>Cambiar</Button>
+              <Button onClick={reasignar} disabled={!destino || faltaSubcuenta(raizDeSeleccion(destino, categorias), cuentas, subcuentaDestino)}>Cambiar</Button>
             </div>
           </div>
         </Modal>
