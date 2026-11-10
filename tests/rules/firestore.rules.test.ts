@@ -312,3 +312,27 @@ describe('cambio de tipo de un tercero', () => {
     await assertFails(setDoc(doc(ownerDb(), `empresas/${EMP}/terceros/t10`), { ...t, cuenta: '4000001' }))
   })
 })
+
+describe('validaciones reforzadas', () => {
+  const empresa = {
+    razonSocial: 'Torre SL', nif: 'B12345674', domicilio: '', codigoPostal: '', municipio: '', provincia: '',
+    email: '', serieFacturas: 'F', ejercicioActivo: 2026, cuentaBanco: '572', cuentaCaja: '570',
+  }
+  const ref = () => doc(ownerDb(), `empresas/${EMP}/config/empresa`)
+  it('config/empresa solo admite sus campos', async () => {
+    await assertSucceeds(setDoc(ref(), empresa))
+    await assertFails(setDoc(ref(), { ...empresa, administrador: true }))
+    await assertFails(setDoc(ref(), { ...empresa, ejercicioActivo: 1900 }))
+    await assertFails(setDoc(ref(), { ...empresa, razonSocial: 'x'.repeat(200) }))
+    await assertSucceeds(updateDoc(ref(), { ejercicioActivo: 2027 }))
+  })
+  it('las líneas de asiento deben ser importes enteros no negativos y cuentas numéricas', async () => {
+    const r = doc(ownerDb(), `empresas/${EMP}/asientos/v1`)
+    const lineas = (l0: object) => ({ lineas: [l0, { cuenta: '705', debeCent: 0, haberCent: 100, concepto: '' }], totalDebeCent: 100, totalHaberCent: 100, cuentas: ['430', '705'] })
+    await assertSucceeds(setDoc(r, asiento(lineas({ cuenta: '430', debeCent: 100, haberCent: 0, concepto: '' }))))
+    await assertFails(setDoc(r, asiento(lineas({ cuenta: '430', debeCent: -100, haberCent: 0, concepto: '' }))))
+    await assertFails(setDoc(r, asiento(lineas({ cuenta: '430', debeCent: 1.5, haberCent: 0, concepto: '' }))))
+    await assertFails(setDoc(r, asiento(lineas({ cuenta: 'abc', debeCent: 100, haberCent: 0, concepto: '' }))))
+    await assertFails(setDoc(r, asiento(lineas({ cuenta: '430', debeCent: 100, haberCent: 0, concepto: '', extra: 1 }))))
+  })
+})

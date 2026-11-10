@@ -1,11 +1,18 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FirebaseError } from 'firebase/app'
-import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth'
+import {
+  browserLocalPersistence,
+  browserSessionPersistence,
+  sendPasswordResetEmail,
+  setPersistence,
+  signInWithEmailAndPassword,
+} from 'firebase/auth'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Alert, Button, Card, Field, Input } from '../components/base'
-import { auth } from '../firebase'
+import { Checkbox } from '@/components/ui/checkbox'
+import { auth, esEquipoCompartido, marcarEquipoCompartido } from '../firebase'
 
 const schema = z.object({
   email: z.email('Email no válido'),
@@ -32,6 +39,7 @@ function mensajeError(e: unknown): string {
 export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
+  const [compartido, setCompartido] = useState(esEquipoCompartido)
   const {
     register,
     handleSubmit,
@@ -42,6 +50,9 @@ export function LoginPage() {
   const onSubmit = async ({ email, password }: FormValues) => {
     setError(null)
     try {
+      // En un equipo compartido la sesión dura lo que la pestaña y no se guardan datos.
+      marcarEquipoCompartido(compartido)
+      await setPersistence(auth, compartido ? browserSessionPersistence : browserLocalPersistence)
       await signInWithEmailAndPassword(auth, email, password)
     } catch (e) {
       setError(mensajeError(e))
@@ -81,6 +92,13 @@ export function LoginPage() {
               {...register('password')}
             />
           </Field>
+          <label className="flex items-start gap-2 text-sm text-slate-600">
+            <Checkbox className="mt-0.5" checked={compartido} onCheckedChange={(v) => setCompartido(v === true)} />
+            <span>
+              Equipo compartido
+              <span className="block text-xs text-slate-500">No guardar datos en este navegador al usar la app.</span>
+            </span>
+          </label>
           {error && <Alert>{error}</Alert>}
           {info && <Alert tone="info">{info}</Alert>}
           <Button type="submit" className="w-full" disabled={isSubmitting}>

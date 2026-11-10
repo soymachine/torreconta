@@ -10,6 +10,7 @@ import { actualizarEmpresa } from '../../services/empresa'
 import { EmpresaForm } from './EmpresaForm'
 import { useEmpresa } from './EmpresaProvider'
 import { LogoCard } from './LogoCard'
+import { CopiaCard } from './CopiaCard'
 
 export function EmpresaPage() {
   const eid = useEmpresaId()
@@ -91,6 +92,7 @@ export function EmpresaPage() {
           Para cerrar un ejercicio, actívalo y usa «Cerrar…»: genera la regularización, el cierre y la apertura del siguiente.
         </p>
       </Card>
+      <CopiaCard />
     </div>
   )
 }

@@ -43,15 +43,22 @@ service cloud.firestore {
       }
 
       match /config/empresa {
+        // Lista cerrada de campos con tipos y tamaños.
+        function empresaValida() {
+          let d = request.resource.data;
+          return d.keys().hasOnly(['razonSocial', 'nif', 'domicilio', 'codigoPostal', 'municipio', 'provincia', 'email',
+                                   'serieFacturas', 'ejercicioActivo', 'cuentaBanco', 'cuentaCaja', 'creadoEn'])
+            && d.razonSocial is string && d.razonSocial.size() >= 1 && d.razonSocial.size() <= 150
+            && d.nif is string && d.nif.size() <= 20
+            && textoMax(d.get('domicilio', ''), 200) && textoMax(d.get('codigoPostal', ''), 5)
+            && textoMax(d.get('municipio', ''), 100) && textoMax(d.get('provincia', ''), 100)
+            && textoMax(d.get('email', ''), 150) && textoMax(d.get('serieFacturas', ''), 10)
+            && d.ejercicioActivo is int && d.ejercicioActivo >= 2000 && d.ejercicioActivo <= 2100
+            && d.get('cuentaBanco', '572').matches('^[0-9]{3,12}$')
+            && d.get('cuentaCaja', '570').matches('^[0-9]{3,12}$');
+        }
         allow read: if autorizado(eid);
-        allow create: if autorizado(eid)
-          && request.resource.data.razonSocial is string
-          && request.resource.data.nif is string
-          && request.resource.data.ejercicioActivo is int;
-        allow update: if autorizado(eid)
-          && request.resource.data.razonSocial is string
-          && request.resource.data.nif is string
-          && request.resource.data.ejercicioActivo is int;
+        allow create, update: if autorizado(eid) && empresaValida();
         allow delete: if false;
       }
 
@@ -113,6 +120,20 @@ service cloud.firestore {
       }
 
       match /asientos/{asientoId} {
+        // Las reglas no permiten recorrer listas: se validan las 4 primeras
+        // líneas (la inmensa mayoría de asientos) y el cuadre de totales.
+        function lineaOk(l) {
+          return l is map && l.keys().hasOnly(['cuenta', 'debeCent', 'haberCent', 'concepto'])
+            && l.cuenta is string && l.cuenta.matches('^[0-9]{1,12}$')
+            && l.debeCent is int && l.debeCent >= 0
+            && l.haberCent is int && l.haberCent >= 0
+            && textoMax(l.get('concepto', ''), 300);
+        }
+        function lineasOk(ls) {
+          return lineaOk(ls[0]) && lineaOk(ls[1])
+            && (ls.size() < 3 || lineaOk(ls[2]))
+            && (ls.size() < 4 || lineaOk(ls[3]));
+        }
         function asientoValido() {
           let d = request.resource.data;
           return d.ejercicio is int
@@ -120,6 +141,7 @@ service cloud.firestore {
             && fechaDe(d)
             && textoMax(d.concepto, 300)
             && d.lineas is list && d.lineas.size() >= 2 && d.lineas.size() <= 1000
+            && lineasOk(d.lineas)
             && d.cuentas is list
             && d.totalDebeCent is int && d.totalHaberCent is int
             && d.totalDebeCent > 0
@@ -181,7 +203,9 @@ service cloud.firestore {
         return d.ejercicio is int
           && fechaDe(d)
           && d.numero is string && d.numero.size() >= 1 && d.numero.size() <= 40
-          && d.terceroId is string && d.terceroCuenta is string && d.terceroNombre is string
+          && d.terceroId is string && d.terceroCuenta is string
+          && d.terceroNombre is string && d.terceroNombre.size() <= 150
+          && textoMax(d.get('terceroNif', ''), 20)
           && d.lineas is list && d.lineas.size() >= 1 && d.lineas.size() <= 100
           && d.bases is list
           && d.baseCent is int && d.cuotaIvaCent is int && d.retencionCent is int && d.totalCent is int

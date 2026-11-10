@@ -3,6 +3,7 @@ import { cerrarSesion, useAuth } from '../auth/AuthProvider'
 import { useEmpresa } from '../features/empresa/EmpresaProvider'
 import { useLibros } from '../features/libros/LibrosProvider'
 import { useLogo } from '../features/empresa/useLogo'
+import { useInactividad } from '../hooks/useInactividad'
 
 const secciones: { titulo?: string; items: { to: string; label: string }[] }[] = [
   { items: [{ to: '/', label: 'Panel' }] },
@@ -42,6 +43,7 @@ export function Layout() {
   const empresa = useEmpresa()
   const { ejercicio } = useLibros()
   const logo = useLogo()
+  useInactividad()
   const auth = useAuth()
   const email = auth.status === 'autorizado' ? auth.user.email : null
 

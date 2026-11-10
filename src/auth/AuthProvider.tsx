@@ -1,7 +1,7 @@
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { getDoc } from 'firebase/firestore'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { auth } from '../firebase'
+import { auth, borrarDatosLocales, iniciarFirestore } from '../firebase'
 import { autorizadoRef } from '../services/paths'
 
 type AuthState =
@@ -24,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         setState({ status: 'cargando' })
         try {
+          iniciarFirestore()
           // Solo los UID dados de alta en /autorizados/{uid} pueden usar la app;
           // el documento indica a qué empresa (contabilidad compartida) acceden.
           const snap = await getDoc(autorizadoRef(user.uid))
@@ -54,6 +55,15 @@ export function useEmpresaId(): string {
   return state.empresaId
 }
 
-export function cerrarSesion() {
-  return signOut(auth)
+/**
+ * Cierra la sesión y borra los datos guardados en este navegador (caché de
+ * Firestore), para que no queden clientes ni facturas en el equipo.
+ */
+export async function cerrarSesion() {
+  try {
+    await signOut(auth)
+  } finally {
+    await borrarDatosLocales()
+    window.location.replace('/')
+  }
 }

@@ -87,6 +87,14 @@ Todos los usuarios con el mismo `empresaId` comparten la misma contabilidad.
 
 ## Modelo de seguridad
 
-- Todos los datos viven en `empresas/{empresaId}/…`. Las reglas (`firestore.rules`) solo dejan acceder a usuarios autenticados cuyo documento `autorizados/{uid}` apunte a esa empresa.
-- Los asientos solo se aceptan si están cuadrados (debe = haber, en céntimos enteros), tienen al menos dos líneas, la fecha cae dentro del ejercicio y el ejercicio está abierto. Los asientos de un ejercicio cerrado no se pueden modificar ni borrar.
-- Las cuentas no se borran: solo se renombran o se desactivan. El código y la naturaleza no se pueden cambiar.
+- **Acceso**: todos los datos viven en `empresas/{empresaId}/…`. Las reglas (`firestore.rules`) solo dejan acceder a usuarios autenticados cuyo `autorizados/{uid}` apunte a esa empresa; nadie puede autorizarse a sí mismo. Las reglas también validan campos, cuadres, ejercicios cerrados y numeración (35 tests).
+- **Cifrado y ubicación**: Firestore cifra en reposo y en tránsito (TLS). La base de datos está en `europe-southwest1` (Madrid) y tiene activada la protección contra borrado.
+- **En el navegador**:
+  - Al cerrar sesión, o tras 30 minutos de inactividad, se borra la caché local de Firestore.
+  - Con «Equipo compartido» en el login no se guarda nada en el navegador y la sesión dura lo que la pestaña.
+- **Hosting**: cabeceras de seguridad (CSP, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`).
+- **App Check** (opcional):
+  1. Crear una clave reCAPTCHA v3 en *Firebase → App Check*.
+  2. Ponerla en `VITE_RECAPTCHA_SITE_KEY` (`.env.production`) y desplegar.
+  3. Tras comprobar las métricas, activar la obligatoriedad (*enforce*) para Firestore.
+- **Copias de seguridad**: en *Empresa y ejercicios*, el botón «Descargar copia de seguridad (JSON)». Con el plan Blaze se pueden programar copias automáticas de Firestore.
