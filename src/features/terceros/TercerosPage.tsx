@@ -22,6 +22,7 @@ export function TercerosPage() {
   const [exportando, setExportando] = useState(false)
   const [tipo, setTipo] = useState<'' | TipoTercero>('')
   const [q, setQ] = useState('')
+  const [orden, setOrden] = useState<'nombre' | 'cuenta'>('nombre')
   const [editando, setEditando] = useState<Tercero | 'nuevo' | null>(null)
   const sumas = useMemo(() => sumasPorCuenta(paraInformes(asientos)), [asientos])
   const catNombre = new Map(categorias.map((c) => [c.id, c.nombre]))
@@ -31,6 +32,7 @@ export function TercerosPage() {
       (!tipo || t.tipo === tipo) &&
       (!q || t.nombre.toLowerCase().includes(q.toLowerCase()) || t.nif.includes(q.toUpperCase()) || t.cuenta.startsWith(q)),
   )
+  .sort((a, b) => (orden === 'cuenta' ? a.cuenta.localeCompare(b.cuenta) : a.nombre.localeCompare(b.nombre, 'es')))
 
   const saldoDe = (t: Tercero) => {
     const s = sumas.get(t.cuenta)
@@ -129,6 +131,10 @@ export function TercerosPage() {
           <option value="acreedor">Acreedores</option>
         </Select>
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar nombre, NIF o cuenta" className="max-w-xs" aria-label="Buscar tercero" />
+        <Select value={orden} onChange={(e) => setOrden(e.target.value as typeof orden)} className="max-w-[14rem]" aria-label="Ordenar por">
+          <option value="nombre">Ordenar por nombre</option>
+          <option value="cuenta">Ordenar por subcuenta</option>
+        </Select>
       </div>
       <TableWrap>
         <table className="w-full text-sm">

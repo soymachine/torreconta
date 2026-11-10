@@ -1,14 +1,23 @@
-import { getDocs, limit, query, runTransaction, updateDoc, where } from 'firebase/firestore'
+import { getDoc, getDocs, limit, query, runTransaction, updateDoc, where, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
 import type { Cuenta } from '../lib/cuentas'
-import { CUENTA_TIPO, siguienteSubcuenta } from '../lib/terceros'
+import { CUENTA_TIPO, siguienteSubcuenta, validarCodigoTercero } from '../lib/terceros'
 import type { Tercero, TipoTercero } from '../lib/tipos'
-import { asientosCol, cuentaRef, emitidasCol, nuevoId, recibidasCol, terceroRef, tercerosCol } from './paths'
+import { asientoRef, asientosCol, cuentaRef, ejercicioRef, emitidaRef, emitidasCol, nuevoId, recibidaRef, recibidasCol, terceroRef, tercerosCol } from './paths'
+import type { Linea } from '../lib/asientos'
+import type { Ejercicio } from '../lib/tipos'
 
 export type DatosTercero = Omit<Tercero, 'id' | 'cuenta' | 'activo'>
 
-export async function crearTercero(eid: string, datos: DatosTercero, cuentas: readonly Cuenta[]): Promise<Tercero> {
-  const codigo = siguienteSubcuenta(datos.tipo, cuentas)
+export async function crearTercero(
+  eid: string,
+  datos: DatosTercero,
+  cuentas: readonly Cuenta[],
+  codigoElegido?: string,
+): Promise<Tercero> {
+  const codigo = codigoElegido || siguienteSubcuenta(datos.tipo, cuentas)
+  const error = validarCodigoTercero(datos.tipo, codigo, cuentas)
+  if (error) throw new Error(error)
   const ref = nuevoId(tercerosCol(eid))
   const tercero: Tercero = { ...datos, id: ref.id, cuenta: codigo, activo: true }
   await runTransaction(db, async (tx) => {
@@ -57,17 +66,21 @@ export async function cambiarTipoTercero(
   tercero: Tercero,
   nuevoTipo: TipoTercero,
   cuentas: readonly Cuenta[],
+  codigoElegido?: string,
 ): Promise<Tercero> {
   if (nuevoTipo === tercero.tipo) return tercero
   const uso = await usoTercero(eid, tercero)
   if (uso.facturas || uso.asientos)
     throw new Error('Este tercero ya tiene facturas o asientos: no se puede cambiar su tipo. Crea uno nuevo del tipo correcto.')
-  const codigo = siguienteSubcuenta(nuevoTipo, cuentas)
+  const codigo = codigoElegido || siguienteSubcuenta(nuevoTipo, cuentas)
+  const errorCodigo = validarCodigoTercero(nuevoTipo, codigo, cuentas)
+  if (errorCodigo) throw new Error(errorCodigo)
   const actualizado: Tercero = {
     ...tercero,
     tipo: nuevoTipo,
     cuenta: codigo,
     categoriaPorDefectoId: nuevoTipo === 'cliente' ? null : tercero.categoriaPorDefectoId,
+    cuentaGastoPorDefecto: nuevoTipo === 'cliente' ? null : tercero.cuentaGastoPorDefecto ?? null,
   }
   await runTransaction(db, async (tx) => {
     const existente = await tx.get(cuentaRef(eid, codigo))
@@ -78,6 +91,7 @@ export async function cambiarTipoTercero(
       tipo: actualizado.tipo,
       cuenta: actualizado.cuenta,
       categoriaPorDefectoId: actualizado.categoriaPorDefectoId,
+      cuentaGastoPorDefecto: actualizado.cuentaGastoPorDefecto,
     })
   })
   return actualizado
@@ -101,4 +115,50 @@ export async function eliminarTercero(eid: string, tercero: Tercero) {
 /** Desactivar oculta el tercero al crear facturas, pero conserva su historial. */
 export async function cambiarActivoTercero(eid: string, tercero: Tercero, activo: boolean) {
   await updateDoc(terceroRef(eid, tercero.id), { activo })
+}
+
+/**
+ * Cambia el código de la subcuenta de un tercero (p. ej. «Proveedores varios»
+ * a 4000999). Si tiene movimientos, se trasladan al código nuevo: los apuntes
+ * de sus asientos y la subcuenta guardada en sus facturas. Solo es posible si
+ * todos están en ejercicios abiertos. La subcuenta antigua queda desactivada.
+ */
+export async function cambiarCodigoTercero(eid: string, tercero: Tercero, nuevoCodigo: string, cuentas: readonly Cuenta[]) {
+  const viejo = tercero.cuenta
+  if (nuevoCodigo === viejo) return tercero
+  const error = validarCodigoTercero(tercero.tipo, nuevoCodigo, cuentas)
+  if (error) throw new Error(error)
+  if ((await getDoc(cuentaRef(eid, nuevoCodigo))).exists()) throw new Error(`La subcuenta ${nuevoCodigo} ya existe.`)
+
+  const [asientos, emitidas, recibidas] = await Promise.all([
+    getDocs(query(asientosCol(eid), where('cuentas', 'array-contains', viejo))),
+    getDocs(query(emitidasCol(eid), where('terceroId', '==', tercero.id))),
+    getDocs(query(recibidasCol(eid), where('terceroId', '==', tercero.id))),
+  ])
+  const anios = new Set<number>([...asientos.docs, ...emitidas.docs, ...recibidas.docs].map((d) => d.data().ejercicio as number))
+  for (const anio of anios) {
+    const ej = await getDoc(ejercicioRef(eid, anio))
+    if ((ej.data() as Ejercicio | undefined)?.estado !== 'abierto')
+      throw new Error(`Tiene movimientos en el ejercicio ${anio}, que está cerrado: no se puede cambiar su código. Reabre ese ejercicio si es imprescindible.`)
+  }
+
+  const cambiar = (c: string) => (c === viejo ? nuevoCodigo : c)
+  const ops: ((b: ReturnType<typeof writeBatch>) => void)[] = [
+    (b) => b.set(cuentaRef(eid, nuevoCodigo), { codigo: nuevoCodigo, nombre: tercero.nombre, naturaleza: CUENTA_TIPO[tercero.tipo].naturaleza, activa: true }),
+    ...asientos.docs.map((d) => (b: ReturnType<typeof writeBatch>) => {
+      const lineas = (d.data().lineas as Linea[]).map((l) => ({ ...l, cuenta: cambiar(l.cuenta) }))
+      b.update(asientoRef(eid, d.id), { lineas, cuentas: [...new Set((d.data().cuentas as string[]).map(cambiar))] })
+    }),
+    ...emitidas.docs.map((d) => (b: ReturnType<typeof writeBatch>) => b.update(emitidaRef(eid, d.id), { terceroCuenta: nuevoCodigo })),
+    ...recibidas.docs.map((d) => (b: ReturnType<typeof writeBatch>) => b.update(recibidaRef(eid, d.id), { terceroCuenta: nuevoCodigo })),
+    (b) => b.update(terceroRef(eid, tercero.id), { cuenta: nuevoCodigo }),
+    (b) => b.update(cuentaRef(eid, viejo), { activa: false }),
+  ]
+  // Un único lote si cabe (atómico); si no, por partes en orden: la subcuenta nueva primero y el tercero al final.
+  for (let i = 0; i < ops.length; i += 450) {
+    const b = writeBatch(db)
+    ops.slice(i, i + 450).forEach((op) => op(b))
+    await b.commit()
+  }
+  return { ...tercero, cuenta: nuevoCodigo }
 }

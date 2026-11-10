@@ -4,7 +4,7 @@ import { useEmpresaId } from '../../auth/AuthProvider'
 import { Alert, Button, Card, Input, Select } from '../../components/base'
 import { esImputable, GRUPOS, type Cuenta } from '../../lib/cuentas'
 import { actualizarCuenta } from '../../services/cuentas'
-import { NuevaSubcuenta } from './NuevaSubcuenta'
+import { NuevaCuenta } from './NuevaCuenta'
 import { useLibros } from '../libros/LibrosProvider'
 
 const naturalezaLabel: Record<Cuenta['naturaleza'], string> = {
@@ -63,13 +63,13 @@ export function CuentasPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-slate-900">Plan de cuentas</h1>
         <Button onClick={() => setCreando((v) => !v)} variant={creando ? 'secondary' : 'primary'}>
-          {creando ? 'Cancelar' : 'Nueva subcuenta'}
+          {creando ? 'Cancelar' : 'Nueva cuenta o subcuenta'}
         </Button>
       </div>
 
       {creando && (
         <Card>
-          <NuevaSubcuenta cuentas={cuentas} onDone={() => setCreando(false)} />
+          <NuevaCuenta cuentas={cuentas} onDone={() => setCreando(false)} />
         </Card>
       )}
 

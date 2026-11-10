@@ -5,6 +5,8 @@ import { gastoPorCategoria } from '../../lib/iva'
 import type { Categoria } from '../../lib/tipos'
 import { actualizarCategoria, crearCategoria, crearCategoriasPredeterminadas } from '../../services/categorias'
 import { reasignarCategoria } from '../../services/facturas'
+import { faltaSubcuenta, SubcuentaGastoSelect } from '../facturas/SubcuentaGastoSelect'
+import { tieneHijas } from '../../lib/cuentas'
 import { useLibros } from '../libros/LibrosProvider'
 
 function CategoriaForm({ categoria, onDone }: { categoria?: Categoria; onDone: () => void }) {
@@ -55,6 +57,7 @@ function CategoriaForm({ categoria, onDone }: { categoria?: Categoria; onDone: (
 function FusionarForm({ origen, onDone }: { origen: Categoria; onDone: () => void }) {
   const { eid, categorias, recibidas, cuentas } = useLibros()
   const [destinoId, setDestinoId] = useState('')
+  const [subcuenta, setSubcuenta] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const afectadas = recibidas.filter((f) => f.categoriaId === origen.id)
@@ -62,9 +65,10 @@ function FusionarForm({ origen, onDone }: { origen: Categoria; onDone: () => voi
     e.preventDefault()
     const destino = categorias.find((c) => c.id === destinoId)
     if (!destino) return setError('Elige la categoría de destino.')
+    if (faltaSubcuenta(destino, cuentas, subcuenta)) return setError('Elige la subcuenta de gasto.')
     setSaving(true)
     try {
-      await reasignarCategoria(eid, afectadas, destino, cuentas)
+      await reasignarCategoria(eid, afectadas, destino, cuentas, subcuenta || undefined)
       await actualizarCategoria(eid, origen.id, { activa: false })
       onDone()
     } catch (err) {
@@ -80,13 +84,14 @@ function FusionarForm({ origen, onDone }: { origen: Categoria; onDone: () => voi
         cuenta). «{origen.nombre}» quedará desactivada.
       </p>
       <Field label="Fusionar en">
-        <Select value={destinoId} onChange={(e) => setDestinoId(e.target.value)}>
+        <Select value={destinoId} onChange={(e) => { setDestinoId(e.target.value); setSubcuenta('') }}>
           <option value="">— Elige —</option>
           {categorias.filter((c) => c.activa && c.id !== origen.id).map((c) => (
             <option key={c.id} value={c.id}>{c.nombre} ({c.cuentaGasto})</option>
           ))}
         </Select>
       </Field>
+      <SubcuentaGastoSelect categoria={categorias.find((c) => c.id === destinoId)} cuentas={cuentas} value={subcuenta} onChange={setSubcuenta} />
       {error && <Alert>{error}</Alert>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onDone}>Cancelar</Button>
@@ -145,7 +150,12 @@ export function CategoriasPage() {
                   <span className="mr-2 inline-block h-3 w-3 rounded-full align-middle" style={{ background: c.color }} />
                   <span className="font-medium">{c.nombre}</span> {!c.activa && <Badge>Inactiva</Badge>}
                 </td>
-                <td className={td}><span className="font-mono">{c.cuentaGasto}</span> <span className="text-slate-500">{nombreCuenta.get(c.cuentaGasto)}</span></td>
+                <td className={td}>
+                  <span className="font-mono">{c.cuentaGasto}</span> <span className="text-slate-500">{nombreCuenta.get(c.cuentaGasto)}</span>
+                  {tieneHijas(c.cuentaGasto, cuentas) && (
+                    <span className="block text-xs text-slate-400">Tiene subcuentas: se elige en cada factura</span>
+                  )}
+                </td>
                 <td className={tdNum}>{gasto.get(c.id)?.numFacturas ?? 0}</td>
                 <td className={tdNum}><Euros cents={gasto.get(c.id)?.importeCent ?? 0} muted /></td>
                 <td className={`${td} whitespace-nowrap text-right`}>

@@ -167,12 +167,14 @@ describe('terceros y categorías', () => {
     categoriaPorDefectoId: null,
     activo: true,
   }
-  it('crea un tercero válido, no deja cambiar su subcuenta y solo un miembro lo borra', async () => {
+  it('crea un tercero válido, su subcuenta solo cambia a otra coherente y solo un miembro lo borra', async () => {
     const r = doc(ownerDb(), `empresas/${EMP}/terceros/t1`)
     await assertSucceeds(setDoc(r, tercero))
     await assertSucceeds(updateDoc(r, { nombre: 'Cliente Nuevo SA' }))
-    await assertFails(updateDoc(r, { cuenta: '4300002' }))
+    await assertSucceeds(updateDoc(r, { cuenta: '4300999' }))
     await assertFails(updateDoc(r, { cuenta: '4000002' }))
+    await assertSucceeds(updateDoc(r, { cuentaGastoPorDefecto: '6020002' }))
+    await assertFails(updateDoc(r, { cuentaGastoPorDefecto: '7050001' }))
     await assertFails(deleteDoc(doc(intrusoDb(), `empresas/${EMP}/terceros/t1`)))
     await assertSucceeds(updateDoc(r, { activo: false }))
     await assertSucceeds(deleteDoc(r))
@@ -215,6 +217,10 @@ describe('facturas', () => {
   it('acepta facturas coherentes en un ejercicio abierto', async () => {
     await assertSucceeds(setDoc(doc(ownerDb(), `empresas/${EMP}/facturasEmitidas/e1`), emitida))
     await assertSucceeds(setDoc(doc(ownerDb(), `empresas/${EMP}/facturasRecibidas/r1`), recibida))
+  })
+  it('la cuenta de gasto de una recibida, si existe, es del grupo 6', async () => {
+    await assertSucceeds(setDoc(doc(ownerDb(), `empresas/${EMP}/facturasRecibidas/r5`), { ...recibida, cuentaGasto: '6020002' }))
+    await assertFails(setDoc(doc(ownerDb(), `empresas/${EMP}/facturasRecibidas/r6`), { ...recibida, cuentaGasto: '7050001' }))
   })
   it('rechaza totales incoherentes y facturas recibidas sin categoría', async () => {
     await assertFails(setDoc(doc(ownerDb(), `empresas/${EMP}/facturasEmitidas/e1`), { ...emitida, totalCent: 1 }))

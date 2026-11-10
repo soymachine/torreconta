@@ -22,3 +22,22 @@ export function siguienteSubcuenta(tipo: TipoTercero, cuentas: readonly Pick<Cue
 export function cuentaCoherente(tipo: TipoTercero, cuenta: string): boolean {
   return /^\d{7}$/.test(cuenta) && cuenta.startsWith(CUENTA_TIPO[tipo].prefijo)
 }
+
+/**
+ * Valida el código de subcuenta elegido para un tercero: 7 dígitos, que
+ * cuelgue de la cuenta de su tipo (430/400/410) y que no exista ya.
+ * `actual` es su código actual (al editar, mantenerlo es válido).
+ */
+export function validarCodigoTercero(
+  tipo: TipoTercero,
+  codigo: string,
+  cuentas: readonly Pick<Cuenta, 'codigo'>[],
+  actual?: string,
+): string | null {
+  const prefijo = CUENTA_TIPO[tipo].prefijo
+  if (!/^\d{7}$/.test(codigo)) return `La subcuenta debe tener 7 dígitos y empezar por ${prefijo} (p. ej. ${prefijo}0999).`
+  if (!cuentaCoherente(tipo, codigo)) return `Para este tipo, la subcuenta debe empezar por ${prefijo}.`
+  if (codigo === prefijo + '0000') return `La ${codigo} no es válida: usa a partir de ${prefijo}0001.`
+  if (codigo !== actual && cuentas.some((c) => c.codigo === codigo)) return `La subcuenta ${codigo} ya existe.`
+  return null
+}

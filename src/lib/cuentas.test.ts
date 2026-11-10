@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PGC_PYMES } from '../data/pgc-pymes'
-import { cuentaPadre, esImputable, validarNuevaSubcuenta, type Cuenta } from './cuentas'
+import { cuentaPadre, esImputable, mensajeErrorNuevaCuenta, validarNuevaCuenta, type Cuenta } from './cuentas'
 
 const cuentas: Cuenta[] = PGC_PYMES.map((c) => ({ ...c, activa: true }))
 const get = (codigo: string) => cuentas.find((c) => c.codigo === codigo)!
@@ -33,13 +33,50 @@ describe('imputabilidad y subcuentas', () => {
     expect(esImputable(get('4751'), cuentas)).toBe(true)
     expect(esImputable(get('43'), cuentas)).toBe(false)
   })
-  it('valida nuevas subcuentas', () => {
-    const ok = validarNuevaSubcuenta('4300001', cuentas)
-    expect(ok.ok && ok.padre.codigo).toBe('430')
-    expect(validarNuevaSubcuenta('47510001', cuentas)).toMatchObject({ ok: true, padre: { codigo: '4751' } })
-    expect(validarNuevaSubcuenta('430', cuentas)).toEqual({ ok: false, error: 'formato' })
-    expect(validarNuevaSubcuenta('4751', cuentas)).toEqual({ ok: false, error: 'existe' })
-    expect(validarNuevaSubcuenta('8000001', cuentas)).toEqual({ ok: false, error: 'sin-padre' })
-    expect(validarNuevaSubcuenta('4200001', cuentas)).toEqual({ ok: false, error: 'padre-grupo' })
+  it('valida nuevas cuentas y subcuentas', () => {
+    expect(validarNuevaCuenta('4300001', cuentas)).toMatchObject({ ok: true, tipo: 'subcuenta', padre: { codigo: '430' } })
+    expect(validarNuevaCuenta('47510001', cuentas)).toMatchObject({ ok: true, padre: { codigo: '4751' } })
+    expect(validarNuevaCuenta('601', cuentas)).toMatchObject({ ok: true, tipo: 'cuenta', padre: { codigo: '60' } })
+    expect(validarNuevaCuenta('6010001', cuentas)).toMatchObject({ ok: false, error: 'padre-grupo' })
+    expect(validarNuevaCuenta('430', cuentas)).toEqual({ ok: false, error: 'existe' })
+    expect(validarNuevaCuenta('4751', cuentas)).toEqual({ ok: false, error: 'existe' })
+    expect(validarNuevaCuenta('62', cuentas)).toEqual({ ok: false, error: 'formato' })
+    expect(validarNuevaCuenta('8000001', cuentas)).toEqual({ ok: false, error: 'sin-padre' })
+    expect(validarNuevaCuenta('800', cuentas)).toEqual({ ok: false, error: 'sin-padre' })
+    expect(mensajeErrorNuevaCuenta('430', 'existe')).toBe('Ya existe la cuenta 430.')
+    expect(mensajeErrorNuevaCuenta('6010001', 'padre-grupo')).toMatch(/Antes crea la cuenta de 3 dígitos 601/)
+  })
+})
+
+describe('cuentasDeGasto', () => {
+  it('sin subcuentas devuelve la propia cuenta', async () => {
+    const { cuentasDeGasto } = await import('./cuentas')
+    expect(cuentasDeGasto('628', cuentas).map((c) => c.codigo)).toEqual(['628'])
+  })
+  it('con subcuentas devuelve solo las subcuentas activas, nunca la raíz', async () => {
+    const { cuentasDeGasto } = await import('./cuentas')
+    const con = [
+      ...cuentas,
+      { codigo: '6020001', nombre: 'Material A', naturaleza: 'gasto' as const, activa: true },
+      { codigo: '6020002', nombre: 'Material B', naturaleza: 'gasto' as const, activa: true },
+      { codigo: '6020003', nombre: 'Antigua', naturaleza: 'gasto' as const, activa: false },
+    ]
+    expect(cuentasDeGasto('602', con).map((c) => c.codigo)).toEqual(['6020001', '6020002'])
+  })
+})
+
+describe('resolverCuentaGasto', () => {
+  it('elige la preferida válida, la única posible o pide elegir', async () => {
+    const { resolverCuentaGasto } = await import('./cuentas')
+    const con = [
+      ...cuentas,
+      { codigo: '6020001', nombre: 'A', naturaleza: 'gasto' as const, activa: true },
+      { codigo: '6020002', nombre: 'B', naturaleza: 'gasto' as const, activa: true },
+    ]
+    expect(resolverCuentaGasto('628', con)).toBe('628')
+    expect(resolverCuentaGasto('602', con, '6020002')).toBe('6020002')
+    expect(() => resolverCuentaGasto('602', con)).toThrow('Elige la subcuenta de gasto')
+    expect(() => resolverCuentaGasto('602', con, '602')).toThrow('Elige la subcuenta de gasto')
+    expect(() => resolverCuentaGasto('602', con, '6280001')).toThrow('Elige la subcuenta de gasto')
   })
 })

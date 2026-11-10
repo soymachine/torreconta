@@ -4,8 +4,11 @@ import { errorMsg } from '../../components/shared'
 import { Alert, Button, Field, Input, Select } from '../../components/base'
 import { isValidNif, normalizeNif } from '../../lib/nif'
 import type { Tercero, TipoTercero } from '../../lib/tipos'
-import { siguienteSubcuenta } from '../../lib/terceros'
-import { actualizarTercero, cambiarTipoTercero, crearTercero, usoTercero, type UsoTercero } from '../../services/terceros'
+import { siguienteSubcuenta, validarCodigoTercero } from '../../lib/terceros'
+import { cuentasDeGasto } from '../../lib/cuentas'
+import { useConfirmar } from '../../components/Confirmar'
+import { SubcuentaGastoSelect } from '../facturas/SubcuentaGastoSelect'
+import { actualizarTercero, cambiarCodigoTercero, cambiarTipoTercero, crearTercero, usoTercero, type UsoTercero } from '../../services/terceros'
 import { useLibros } from '../libros/LibrosProvider'
 
 export const TIPO_LABEL: Record<TipoTercero, string> = {
@@ -32,6 +35,10 @@ export function TerceroForm({
   const [email, setEmail] = useState(tercero?.email ?? '')
   const [domicilio, setDomicilio] = useState(tercero?.domicilio ?? '')
   const [categoriaId, setCategoriaId] = useState(tercero?.categoriaPorDefectoId ?? '')
+  const [cuentaGastoDef, setCuentaGastoDef] = useState(tercero?.cuentaGastoPorDefecto ?? '')
+  // Código de la subcuenta: vacío = el automático (o el actual al editar).
+  const [codigoEditado, setCodigoEditado] = useState('')
+  const confirmar = useConfirmar()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const tipos = tiposPermitidos ?? (['cliente', 'proveedor', 'acreedor'] as TipoTercero[])
@@ -51,7 +58,15 @@ export function TerceroForm({
   const conMovimientos = uso !== null && uso !== 'comprobando' && (uso.facturas || uso.asientos)
   const tipoBloqueado = !!tercero && (uso === 'comprobando' || conMovimientos)
   const cambiaTipo = !!tercero && tipo !== tercero.tipo
-  const nuevaCuenta = cambiaTipo ? siguienteSubcuenta(tipo, cuentas) : null
+  const sugerida = tercero && !cambiaTipo ? tercero.cuenta : siguienteSubcuenta(tipo, cuentas)
+  const codigoFinal = codigoEditado || sugerida
+  const errorCodigo = codigoEditado
+    ? validarCodigoTercero(tipo, codigoFinal, cuentas, tercero && !cambiaTipo ? tercero.cuenta : undefined)
+    : null
+  const nuevaCuenta = cambiaTipo ? codigoFinal : null
+  const categoriaSel = categorias.find((c) => c.id === categoriaId)
+  const subcuentaValida = !!categoriaSel && cuentasDeGasto(categoriaSel.cuentaGasto, cuentas).length > 1
+    && cuentasDeGasto(categoriaSel.cuentaGasto, cuentas).some((c) => c.codigo === cuentaGastoDef)
   const ayudaTipo = !tercero
     ? 'Se le asignará su propia subcuenta (430…, 400… o 410…)'
     : uso === 'comprobando'
@@ -74,16 +89,31 @@ export function TerceroForm({
       email: email.trim(),
       domicilio: domicilio.trim(),
       categoriaPorDefectoId: tipo === 'cliente' ? null : categoriaId || null,
+      cuentaGastoPorDefecto: tipo === 'cliente' || !subcuentaValida ? null : cuentaGastoDef,
     }
+    if (errorCodigo) return setError(errorCodigo)
     setSaving(true)
     try {
       if (tercero) {
-        const base = cambiaTipo ? await cambiarTipoTercero(eid, tercero, tipo, cuentas) : tercero
+        let base = tercero
+        if (cambiaTipo) base = await cambiarTipoTercero(eid, tercero, tipo, cuentas, codigoEditado || undefined)
+        else if (codigoFinal !== tercero.cuenta) {
+          if (conMovimientos) {
+            const ok = await confirmar({
+              titulo: `¿Cambiar la subcuenta ${tercero.cuenta} por ${codigoFinal}?`,
+              descripcion: 'Sus apuntes y facturas pasarán a la nueva subcuenta y la antigua quedará desactivada. Solo es posible si todos sus movimientos están en ejercicios abiertos.',
+              accion: 'Cambiar subcuenta',
+            })
+            if (!ok) return
+          }
+          base = await cambiarCodigoTercero(eid, tercero, codigoFinal, cuentas)
+          toast.success(`${tercero.nombre} ahora usa la subcuenta ${codigoFinal}`)
+        }
         await actualizarTercero(eid, base, datos)
         if (cambiaTipo) toast.success(`${datos.nombre} ahora es ${TIPO_LABEL[tipo].toLowerCase()} (subcuenta ${base.cuenta})`)
         onDone({ ...base, ...datos })
       } else {
-        const nuevo = await crearTercero(eid, { ...datos, tipo }, cuentas)
+        const nuevo = await crearTercero(eid, { ...datos, tipo }, cuentas, codigoFinal)
         toast.success(`${nuevo.nombre} creado con la subcuenta ${nuevo.cuenta}`)
         onDone(nuevo)
       }
@@ -101,10 +131,29 @@ export function TerceroForm({
           {tipos.map((t) => <option key={t} value={t}>{TIPO_LABEL[t]}</option>)}
         </Select>
       </Field>
+      <Field
+        label="Subcuenta"
+        error={errorCodigo ?? undefined}
+        hint={
+          tercero && !cambiaTipo
+            ? `Puedes cambiarla (p. ej. ${tercero.cuenta.slice(0, 3)}0999 para que salga al final)${conMovimientos ? '; sus movimientos se trasladarán' : ''}`
+            : `Vacía = la siguiente libre (${sugerida}). Puedes elegir otra, p. ej. ${sugerida.slice(0, 3)}0999`
+        }
+      >
+        <Input
+          value={codigoEditado}
+          placeholder={sugerida}
+          onChange={(e) => setCodigoEditado(e.target.value.replace(/\D/g, '').slice(0, 7))}
+          inputMode="numeric"
+          className="font-mono"
+          aria-invalid={errorCodigo ? true : undefined}
+          aria-label="Subcuenta"
+        />
+      </Field>
       <Field label="NIF / CIF">
         <Input value={nif} onChange={(e) => setNif(e.target.value)} maxLength={20} />
       </Field>
-      <Field label="Nombre o razón social" className="sm:col-span-2">
+      <Field label="Nombre o razón social">
         <Input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={150} autoFocus />
       </Field>
       <Field label="Email">
@@ -115,13 +164,25 @@ export function TerceroForm({
       </Field>
       {tipo !== 'cliente' && (
         <Field label="Categoría de gasto por defecto" hint="Se preseleccionará en sus facturas" className="sm:col-span-2">
-          <Select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
+          <Select value={categoriaId} onChange={(e) => { setCategoriaId(e.target.value); setCuentaGastoDef('') }} aria-label="Categoría de gasto por defecto">
             <option value="">— Ninguna —</option>
             {categorias.filter((c) => c.activa || c.id === categoriaId).map((c) => (
               <option key={c.id} value={c.id}>{c.nombre} ({c.cuentaGasto})</option>
             ))}
           </Select>
         </Field>
+      )}
+      {tipo !== 'cliente' && (
+        <div className="sm:col-span-2">
+          <SubcuentaGastoSelect
+            categoria={categoriaSel}
+            cuentas={cuentas}
+            value={cuentaGastoDef}
+            onChange={setCuentaGastoDef}
+            label="Subcuenta de gasto por defecto"
+            vacio="— Elegir en cada factura —"
+          />
+        </div>
       )}
       {cambiaTipo && tercero && (
         <div className="sm:col-span-2" data-testid="aviso-cambio-tipo">

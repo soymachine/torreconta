@@ -15,3 +15,16 @@ describe('subcuentas de terceros', () => {
     expect(cuentaCoherente('proveedor', '400')).toBe(false)
   })
 })
+
+describe('código de subcuenta elegido', () => {
+  it('valida formato, prefijo del tipo y duplicados', async () => {
+    const { validarCodigoTercero } = await import('./terceros')
+    const cuentas = [{ codigo: '4000001' }, { codigo: '4300001' }]
+    expect(validarCodigoTercero('proveedor', '4000999', cuentas)).toBeNull()
+    expect(validarCodigoTercero('proveedor', '4000001', cuentas)).toBe('La subcuenta 4000001 ya existe.')
+    expect(validarCodigoTercero('proveedor', '4000001', cuentas, '4000001')).toBeNull()
+    expect(validarCodigoTercero('proveedor', '4300999', cuentas)).toMatch(/debe empezar por 400/)
+    expect(validarCodigoTercero('cliente', '43099', cuentas)).toMatch(/7 dígitos/)
+    expect(validarCodigoTercero('acreedor', '4100000', cuentas)).toMatch(/a partir de 4100001/)
+  })
+})

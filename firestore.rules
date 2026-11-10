@@ -160,7 +160,7 @@ service cloud.firestore {
       match /terceros/{id} {
         function terceroValido() {
           let d = request.resource.data;
-          return soloCampos(['tipo', 'nombre', 'nif', 'email', 'domicilio', 'cuenta', 'categoriaPorDefectoId', 'activo'])
+          return soloCampos(['tipo', 'nombre', 'nif', 'email', 'domicilio', 'cuenta', 'categoriaPorDefectoId', 'cuentaGastoPorDefecto', 'activo'])
             && d.tipo in ['cliente', 'proveedor', 'acreedor']
             && d.nombre is string && d.nombre.size() >= 1 && d.nombre.size() <= 150
             && textoMax(d.nif, 20) && textoMax(d.email, 150) && textoMax(d.domicilio, 300)
@@ -168,15 +168,15 @@ service cloud.firestore {
             // La subcuenta cuelga de la cuenta de su tipo: 430 clientes, 400 proveedores, 410 acreedores.
             && d.cuenta[0:3] == {'cliente': '430', 'proveedor': '400', 'acreedor': '410'}[d.tipo]
             && (d.categoriaPorDefectoId == null || d.categoriaPorDefectoId is string)
+            && (d.get('cuentaGastoPorDefecto', null) == null || d.cuentaGastoPorDefecto.matches('^6[0-9]{2,11}$'))
             && d.activo is bool;
         }
         allow read: if autorizado(eid);
         allow create: if autorizado(eid) && terceroValido();
-        // Tipo y subcuenta solo cambian juntos (corrección de un alta errónea;
-        // la app comprueba antes que el tercero no tenga movimientos).
+        // La subcuenta puede cambiar (siempre coherente con el tipo); el tipo solo
+        // cambia junto con la subcuenta. La app traslada antes los movimientos.
         allow update: if autorizado(eid) && terceroValido()
-          && ((request.resource.data.cuenta == resource.data.cuenta && request.resource.data.tipo == resource.data.tipo)
-              || (request.resource.data.cuenta != resource.data.cuenta && request.resource.data.tipo != resource.data.tipo));
+          && (request.resource.data.tipo == resource.data.tipo || request.resource.data.cuenta != resource.data.cuenta);
         // Solo se eliminan terceros sin movimientos (lo comprueba la app antes);
         // las facturas guardan copia de su nombre, NIF y subcuenta.
         allow delete: if autorizado(eid);
@@ -242,6 +242,7 @@ service cloud.firestore {
           let d = request.resource.data;
           return facturaValida(d)
             && d.categoriaId is string && d.categoriaId.size() > 0
+            && (!('cuentaGasto' in d) || (d.cuentaGasto is string && d.cuentaGasto.matches('^6[0-9]{2,11}$')))
             && d.ivaDeducible is bool
             && d.estado in ['pendiente', 'pagada'];
         }

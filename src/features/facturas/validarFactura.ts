@@ -14,6 +14,10 @@ export interface DatosFormularioFactura {
   numero: string
   terceroId: string
   categoriaId: string
+  /** Cuenta raíz de la categoría elegida y subcuentas donde se puede contabilizar. */
+  raizCuentaGasto?: string
+  opcionesCuentaGasto?: readonly string[]
+  cuentaGasto?: string
   cuentaIngreso: string
   cuentasIngresoValidas: readonly string[]
   lineas: readonly LineaFormulario[]
@@ -36,6 +40,12 @@ export function validarFormularioFactura(d: DatosFormularioFactura): ErroresFact
   if (recibida && !d.numero.trim()) e.numero = 'Escribe el número que figura en la factura del proveedor.'
   if (!d.terceroId) e.tercero = recibida ? 'Elige el proveedor que te ha facturado.' : 'Elige el cliente al que facturas.'
   if (recibida && !d.categoriaId) e.categoria = 'Elige en qué categoría de gasto va esta factura.'
+  if (recibida && d.categoriaId && d.raizCuentaGasto) {
+    const ops = d.opcionesCuentaGasto ?? []
+    if (ops.length === 0) e.cuentaGasto = `La cuenta ${d.raizCuentaGasto} no tiene subcuentas activas: actívalas o crea una en el plan de cuentas.`
+    else if (ops.length > 1 && !ops.includes(d.cuentaGasto ?? ''))
+      e.cuentaGasto = `Elige la subcuenta de gasto (la ${d.raizCuentaGasto} tiene subcuentas).`
+  }
   if (!recibida && !d.cuentasIngresoValidas.includes(d.cuentaIngreso)) e.cuentaIngreso = 'Elige la cuenta de ingresos.'
 
   const importe = recibida ? 'la base imponible' : 'el precio'
@@ -60,6 +70,6 @@ export function validarFormularioFactura(d: DatosFormularioFactura): ErroresFact
 
 /** Orden visual de los campos, para enfocar el primero con error. */
 export function primerError(e: ErroresFactura): string | undefined {
-  const orden = ['fecha', 'numero', 'tercero', 'categoria', 'cuentaIngreso']
+  const orden = ['fecha', 'numero', 'tercero', 'categoria', 'cuentaGasto', 'cuentaIngreso']
   return orden.find((k) => e[k]) ?? Object.keys(e).filter((k) => k.startsWith('linea.')).sort()[0] ?? (e.lineas ? 'lineas' : undefined)
 }

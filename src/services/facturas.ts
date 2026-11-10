@@ -14,7 +14,7 @@ import {
   calcularFactura,
   type LineaFactura,
 } from '../lib/contabilizacion'
-import type { Cuenta } from '../lib/cuentas'
+import { resolverCuentaGasto, type Cuenta } from '../lib/cuentas'
 import type { Categoria, FacturaEmitida, FacturaRecibida, Tercero } from '../lib/tipos'
 import { leerEjercicioAbierto } from './ejercicios'
 import { asientoRef, asientosCol, ejercicioRef, emitidaRef, emitidasCol, nuevoId, recibidaRef, recibidasCol } from './paths'
@@ -149,10 +149,15 @@ export interface EntradaFacturaRecibida {
   irpfPct: number
   ivaDeducible: boolean
   categoria: Categoria
+  /** Subcuenta elegida cuando la cuenta de la categoría tiene subcuentas. */
+  cuentaGasto?: string
 }
 
-function borradorRecibida(f: Pick<FacturaRecibida, 'fecha' | 'numero' | 'terceroNombre' | 'terceroCuenta' | 'ivaDeducible'> & { calculo: ReturnType<typeof calcularFactura> }, categoria: Categoria) {
-  return asientoFacturaRecibida({ ...f, cuentaGasto: categoria.cuentaGasto })
+function borradorRecibida(
+  f: Pick<FacturaRecibida, 'fecha' | 'numero' | 'terceroNombre' | 'terceroCuenta' | 'ivaDeducible'> & { calculo: ReturnType<typeof calcularFactura> },
+  cuentaGasto: string,
+) {
+  return asientoFacturaRecibida({ ...f, cuentaGasto })
 }
 
 export async function guardarFacturaRecibida(
@@ -167,6 +172,8 @@ export async function guardarFacturaRecibida(
   if (anioDe(e.fecha) !== anio) throw new Error(`La fecha debe pertenecer al ejercicio ${anio}.`)
   if (existente && existente.estado !== 'pendiente') throw new Error('Deshaz el pago antes de modificar la factura.')
   const calculo = calcularFactura(e.lineas, e.irpfPct)
+  // Si la cuenta de la categoría tiene subcuentas, se contabiliza siempre en una de ellas.
+  const cuentaGasto = resolverCuentaGasto(e.categoria.cuentaGasto, ctx.cuentas, e.cuentaGasto)
   const borrador = borradorRecibida(
     {
       fecha: e.fecha,
@@ -176,7 +183,7 @@ export async function guardarFacturaRecibida(
       ivaDeducible: e.ivaDeducible,
       calculo,
     },
-    e.categoria,
+    cuentaGasto,
   )
   comprobar(borrador, ctx.cuentas, anio)
 
@@ -199,6 +206,7 @@ export async function guardarFacturaRecibida(
       lineas: e.lineas,
       ...calculo,
       categoriaId: e.categoria.id,
+      cuentaGasto,
       ivaDeducible: e.ivaDeducible,
       asientoId: asientoId!,
       estado: 'pendiente',
@@ -227,14 +235,18 @@ export async function reasignarCategoria(
   facturas: readonly FacturaRecibida[],
   categoria: Categoria,
   cuentas: readonly Cuenta[],
+  /** Subcuenta elegida si la cuenta de la categoría destino tiene varias. */
+  cuentaGasto?: string,
 ) {
   const pendientes = facturas.filter((f) => f.categoriaId !== categoria.id)
   for (let i = 0; i < pendientes.length; i += 200) {
     const batch = writeBatch(db)
     for (const f of pendientes.slice(i, i + 200)) {
-      const borrador = borradorRecibida({ ...f, calculo: f }, categoria)
+      // Conserva la subcuenta de la factura si sigue siendo válida en la nueva categoría.
+      const cuenta = resolverCuentaGasto(categoria.cuentaGasto, cuentas, cuentaGasto ?? f.cuentaGasto)
+      const borrador = borradorRecibida({ ...f, calculo: f }, cuenta)
       comprobar(borrador, cuentas, f.ejercicio)
-      batch.update(recibidaRef(eid, f.id), { categoriaId: categoria.id })
+      batch.update(recibidaRef(eid, f.id), { categoriaId: categoria.id, cuentaGasto: cuenta })
       batch.update(asientoRef(eid, f.asientoId), camposAsiento(borrador))
     }
     await batch.commit()

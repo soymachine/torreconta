@@ -13,6 +13,8 @@ export interface Tercero {
   domicilio: string
   cuenta: string
   categoriaPorDefectoId: string | null
+  /** Subcuenta de gasto que se preselecciona en sus facturas (si su categoría tiene subcuentas). */
+  cuentaGastoPorDefecto?: string | null
   activo: boolean
 }
 
@@ -52,6 +54,8 @@ export interface FacturaEmitida extends FacturaBase {
 
 export interface FacturaRecibida extends FacturaBase {
   categoriaId: string
+  /** Cuenta (o subcuenta) 6xx donde se contabilizó; si falta, la de la categoría. */
+  cuentaGasto?: string
   ivaDeducible: boolean
   estado: 'pendiente' | 'pagada'
   pago: MovimientoTesoreria | null

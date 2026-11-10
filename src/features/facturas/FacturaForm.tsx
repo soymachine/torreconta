@@ -4,7 +4,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { centsAInput, errorMsg, Euros, Modal } from '../../components/shared'
 import { Alert, Button, Field, Input, Select } from '../../components/base'
 import { calcularFactura, TIPOS_IRPF, TIPOS_IVA, type LineaFactura } from '../../lib/contabilizacion'
-import { esImputable } from '../../lib/cuentas'
+import { cuentasDeGasto, esImputable } from '../../lib/cuentas'
 import { parseEuros } from '../../lib/money'
 import type { FacturaEmitida, FacturaRecibida, Tercero, TipoTercero } from '../../lib/tipos'
 import { guardarFacturaEmitida, guardarFacturaRecibida } from '../../services/facturas'
@@ -36,6 +36,7 @@ export function FacturaForm(props: Props) {
   const [numero, setNumero] = useState(recibida?.numero ?? '')
   const [terceroId, setTerceroId] = useState(existente?.terceroId ?? '')
   const [categoriaId, setCategoriaId] = useState(recibida?.categoriaId ?? '')
+  const [cuentaGasto, setCuentaGasto] = useState(recibida?.cuentaGasto ?? '')
   const [ivaDeducible, setIvaDeducible] = useState(recibida?.ivaDeducible ?? true)
   const [cuentaIngreso, setCuentaIngreso] = useState(emitida?.cuentaIngreso ?? '705')
   const [irpfPct, setIrpfPct] = useState(existente?.irpfPct ?? 0)
@@ -68,6 +69,10 @@ export function FacturaForm(props: Props) {
     (t) => tiposTercero.includes(t.tipo) && (t.activo || t.id === terceroId),
   )
   const cuentasIngreso = cuentas.filter((c) => c.codigo.startsWith('7') && esImputable(c, cuentas))
+  // Si la cuenta de la categoría tiene subcuentas, hay que elegir una de ellas (nunca la cuenta raíz).
+  const categoriaSel = categorias.find((c) => c.id === categoriaId)
+  const opcionesGasto = categoriaSel ? cuentasDeGasto(categoriaSel.cuentaGasto, cuentas) : []
+  const cuentaGastoFinal = opcionesGasto.length === 1 ? opcionesGasto[0].codigo : cuentaGasto
 
   const parsed = lineas.map((l): LineaFactura | null => {
     const cantidad = Number(l.cantidad.replace(',', '.'))
@@ -78,11 +83,22 @@ export function FacturaForm(props: Props) {
   const validas = parsed.filter((l): l is LineaFactura => l !== null)
   const calculo = calcularFactura(validas, irpfPct)
 
+  const cambiarCategoria = (id: string) => {
+    setCategoriaId(id)
+    limpiar('categoria', 'cuentaGasto')
+    // Se conserva la subcuenta elegida solo si sigue siendo válida para la nueva categoría.
+    const cat = categorias.find((c) => c.id === id)
+    if (!cat || !cuentasDeGasto(cat.cuentaGasto, cuentas).some((c) => c.codigo === cuentaGasto)) setCuentaGasto('')
+  }
+
   const elegirTercero = (id: string, lista = opcionesTercero) => {
     setTerceroId(id)
     limpiar('tercero', 'categoria')
     const t = lista.find((x) => x.id === id)
-    if (tipo === 'recibida' && t?.categoriaPorDefectoId) setCategoriaId(t.categoriaPorDefectoId)
+    if (tipo === 'recibida' && t?.categoriaPorDefectoId) {
+      cambiarCategoria(t.categoriaPorDefectoId)
+      if (t.cuentaGastoPorDefecto) setCuentaGasto(t.cuentaGastoPorDefecto)
+    }
   }
 
   const set = (i: number, campo: keyof LineaEdit, v: string | number) => {
@@ -100,6 +116,9 @@ export function FacturaForm(props: Props) {
       numero,
       terceroId,
       categoriaId,
+      raizCuentaGasto: categoriaSel?.cuentaGasto,
+      opcionesCuentaGasto: opcionesGasto.map((c) => c.codigo),
+      cuentaGasto: cuentaGastoFinal,
       cuentaIngreso,
       cuentasIngresoValidas: cuentasIngreso.map((c) => c.codigo),
       lineas,
@@ -130,7 +149,7 @@ export function FacturaForm(props: Props) {
         await guardarFacturaRecibida(
           eid,
           { anio, cuentas },
-          { fecha, numero, tercero, lineas: utiles, irpfPct, ivaDeducible, categoria },
+          { fecha, numero, tercero, lineas: utiles, irpfPct, ivaDeducible, categoria, cuentaGasto: cuentaGastoFinal },
           recibida,
         )
         toast.success(recibida ? `Factura ${recibida.numero} actualizada` : 'Factura recibida registrada')
@@ -179,7 +198,7 @@ export function FacturaForm(props: Props) {
           <>
             <Campo k="categoria" className="sm:col-span-2">
             <Field label="Categoría de gasto" error={errores.categoria}>
-              <Select value={categoriaId} onChange={(e) => { setCategoriaId(e.target.value); limpiar('categoria') }} aria-label="Categoría" aria-invalid={inv('categoria')}>
+              <Select value={categoriaId} onChange={(e) => cambiarCategoria(e.target.value)} aria-label="Categoría" aria-invalid={inv('categoria')}>
                 <option value="">— Elige —</option>
                 {categorias.filter((c) => c.activa || c.id === categoriaId).map((c) => (
                   <option key={c.id} value={c.id}>{c.nombre} ({c.cuentaGasto})</option>
@@ -191,6 +210,29 @@ export function FacturaForm(props: Props) {
               <Checkbox checked={ivaDeducible} onCheckedChange={(v) => setIvaDeducible(v === true)} />
               IVA deducible
             </label>
+            {categoriaSel && (
+              <Campo k="cuentaGasto" className="sm:col-span-2">
+                {opcionesGasto.length > 1 ? (
+                  <Field label="Cuenta de gasto" error={errores.cuentaGasto} hint={`La ${categoriaSel.cuentaGasto} tiene subcuentas: elige en cuál se contabiliza`}>
+                    <Select
+                      value={cuentaGasto}
+                      onChange={(e) => { setCuentaGasto(e.target.value); limpiar('cuentaGasto') }}
+                      aria-label="Cuenta de gasto"
+                      aria-invalid={inv('cuentaGasto')}
+                    >
+                      <option value="">— Elige subcuenta —</option>
+                      {opcionesGasto.map((c) => <option key={c.codigo} value={c.codigo}>{c.codigo} · {c.nombre}</option>)}
+                    </Select>
+                  </Field>
+                ) : opcionesGasto.length === 1 ? (
+                  <p className="text-sm text-slate-500" data-testid="cuenta-gasto-auto">
+                    Se contabilizará en la <span className="font-mono">{opcionesGasto[0].codigo}</span> · {opcionesGasto[0].nombre}
+                  </p>
+                ) : (
+                  <p className="text-sm text-destructive">{errores.cuentaGasto ?? `La cuenta ${categoriaSel.cuentaGasto} no tiene subcuentas activas.`}</p>
+                )}
+              </Campo>
+            )}
           </>
         ) : (
           <Campo k="cuentaIngreso" className="sm:col-span-2">

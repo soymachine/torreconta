@@ -11,6 +11,7 @@ import { borrarFacturaRecibida, deshacerPago, reasignarCategoria } from '../../s
 import { useLibros } from '../libros/LibrosProvider'
 import { FacturaDetalle } from './FacturaDetalle'
 import { FacturaForm } from './FacturaForm'
+import { faltaSubcuenta, SubcuentaGastoSelect } from './SubcuentaGastoSelect'
 import { TesoreriaForm } from './TesoreriaForm'
 
 type ModalState = { tipo: 'nueva' | 'reasignar' } | { tipo: 'editar' | 'pagar'; f: FacturaRecibida } | null
@@ -24,6 +25,7 @@ export function FacturasRecibidasPage() {
   const [q, setQ] = useState('')
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set())
   const [destino, setDestino] = useState('')
+  const [subcuentaDestino, setSubcuentaDestino] = useState('')
   const [error, setError] = useState<string | null>(null)
   const abierto = ejercicio?.estado === 'abierto'
   const confirmar = useConfirmar()
@@ -68,7 +70,7 @@ export function FacturasRecibidasPage() {
     const cat = catPorId.get(destino)
     if (!cat) return
     await accion(async () => {
-      await reasignarCategoria(eid, seleccionadas, cat, cuentas)
+      await reasignarCategoria(eid, seleccionadas, cat, cuentas, subcuentaDestino || undefined)
       toast.success(`${seleccionadas.length} facturas movidas a «${cat.nombre}»`)
       setSeleccion(new Set())
       setModal(null)
@@ -150,6 +152,7 @@ export function FacturasRecibidasPage() {
                   <td className={td}>
                     {c && <span className="mr-1.5 inline-block h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />}
                     {c?.nombre ?? '—'}
+                    <span className="block font-mono text-xs text-slate-400">{f.cuentaGasto ?? c?.cuentaGasto}</span>
                   </td>
                   <td className={tdNum}><Euros cents={f.baseCent} /></td>
                   <td className={tdNum}><Euros cents={f.cuotaIvaCent} />{!f.ivaDeducible && <span className="ml-1 text-xs text-slate-400" title="IVA no deducible">ND</span>}</td>
@@ -209,14 +212,15 @@ export function FacturasRecibidasPage() {
           <div className="space-y-4">
             <p className="text-sm text-slate-600">Se regenerarán sus asientos para llevar el gasto a la cuenta de la nueva categoría.</p>
             <Field label="Nueva categoría">
-              <Select value={destino} onChange={(e) => setDestino(e.target.value)} aria-label="Nueva categoría">
+              <Select value={destino} onChange={(e) => { setDestino(e.target.value); setSubcuentaDestino('') }} aria-label="Nueva categoría">
                 <option value="">— Elige —</option>
                 {categorias.filter((c) => c.activa).map((c) => <option key={c.id} value={c.id}>{c.nombre} ({c.cuentaGasto})</option>)}
               </Select>
             </Field>
+            <SubcuentaGastoSelect categoria={catPorId.get(destino)} cuentas={cuentas} value={subcuentaDestino} onChange={setSubcuentaDestino} />
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setModal(null)}>Cancelar</Button>
-              <Button onClick={reasignar} disabled={!destino}>Cambiar</Button>
+              <Button onClick={reasignar} disabled={!destino || faltaSubcuenta(catPorId.get(destino), cuentas, subcuentaDestino)}>Cambiar</Button>
             </div>
           </div>
         </Modal>

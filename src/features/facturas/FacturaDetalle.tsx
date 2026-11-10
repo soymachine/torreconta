@@ -16,7 +16,13 @@ export function FacturaDetalle({ factura }: { factura: FacturaEmitida | FacturaR
       <div className="grid gap-2 sm:grid-cols-2">
         <div><span className="text-slate-500">Fecha:</span> {formatFecha(factura.fecha)}</div>
         <div><span className="text-slate-500">Tercero:</span> {factura.terceroNombre} {factura.terceroNif && `(${factura.terceroNif})`}</div>
-        {categoria && <div><span className="text-slate-500">Categoría:</span> {categoria.nombre} ({categoria.cuentaGasto})</div>}
+        {categoria && <div><span className="text-slate-500">Categoría:</span> {categoria.nombre}</div>}
+        {categoria && 'categoriaId' in factura && (
+          <div>
+            <span className="text-slate-500">Cuenta de gasto:</span>{' '}
+            <span className="font-mono">{factura.cuentaGasto ?? categoria.cuentaGasto}</span> {nombres.get(factura.cuentaGasto ?? categoria.cuentaGasto)}
+          </div>
+        )}
         <div>
           <span className="text-slate-500">Estado:</span>{' '}
           {mov ? <Badge tone="green">{'cobro' in factura ? 'Cobrada' : 'Pagada'} el {formatFecha(mov.fecha)} ({mov.cuenta})</Badge> : <Badge tone="amber">Pendiente</Badge>}

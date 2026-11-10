@@ -58,3 +58,16 @@ describe('validarFormularioFactura', () => {
     expect(e).toEqual({ fecha: 'La fecha debe estar dentro del ejercicio 2026.' })
   })
 })
+
+describe('subcuenta de gasto', () => {
+  it('obliga a elegir subcuenta si la cuenta de la categoría tiene varias', () => {
+    const d = { ...base, raizCuentaGasto: '602', opcionesCuentaGasto: ['6020001', '6020002'] }
+    expect(validarFormularioFactura({ ...d, cuentaGasto: '' }).cuentaGasto).toBe('Elige la subcuenta de gasto (la 602 tiene subcuentas).')
+    expect(validarFormularioFactura({ ...d, cuentaGasto: '602' }).cuentaGasto).toBeDefined()
+    expect(validarFormularioFactura({ ...d, cuentaGasto: '6020002' })).toEqual({})
+  })
+  it('con una sola cuenta posible no pide nada; sin ninguna avisa', () => {
+    expect(validarFormularioFactura({ ...base, raizCuentaGasto: '628', opcionesCuentaGasto: ['628'] })).toEqual({})
+    expect(validarFormularioFactura({ ...base, raizCuentaGasto: '602', opcionesCuentaGasto: [] }).cuentaGasto).toMatch(/no tiene subcuentas activas/)
+  })
+})
