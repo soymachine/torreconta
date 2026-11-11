@@ -244,6 +244,8 @@ service cloud.firestore {
             && d.categoriaId is string && d.categoriaId.size() > 0
             && (!('cuentaGasto' in d) || (d.cuentaGasto is string && d.cuentaGasto.matches('^6[0-9]{2,11}$')))
             && d.ivaDeducible is bool
+            && (!('vencimiento' in d) || (d.vencimiento is string
+                && d.vencimiento.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && d.vencimiento >= d.fecha))
             && d.estado in ['pendiente', 'pagada'];
         }
         allow read: if autorizado(eid);

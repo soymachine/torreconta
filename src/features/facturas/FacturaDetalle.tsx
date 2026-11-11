@@ -15,6 +15,9 @@ export function FacturaDetalle({ factura }: { factura: FacturaEmitida | FacturaR
     <div className="space-y-5 text-sm">
       <div className="grid gap-2 sm:grid-cols-2">
         <div><span className="text-slate-500">Fecha:</span> {formatFecha(factura.fecha)}</div>
+        {'vencimiento' in factura && factura.vencimiento && (
+          <div><span className="text-slate-500">Vencimiento:</span> {formatFecha(factura.vencimiento)}</div>
+        )}
         <div><span className="text-slate-500">Tercero:</span> {factura.terceroNombre} {factura.terceroNif && `(${factura.terceroNif})`}</div>
         {categoria && <div><span className="text-slate-500">Categoría:</span> {categoria.nombre}</div>}
         {categoria && 'categoriaId' in factura && (

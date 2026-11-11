@@ -12,6 +12,7 @@ const secciones: { titulo?: string; items: { to: string; label: string }[] }[] =
     items: [
       { to: '/facturas-emitidas', label: 'Facturas emitidas' },
       { to: '/facturas-recibidas', label: 'Facturas recibidas' },
+      { to: '/vencimientos', label: 'Vencimientos' },
       { to: '/terceros', label: 'Clientes y proveedores' },
       { to: '/categorias', label: 'Categorías de gasto' },
     ],

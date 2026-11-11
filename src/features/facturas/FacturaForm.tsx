@@ -7,6 +7,7 @@ import { calcularFactura, TIPOS_IRPF, TIPOS_IVA, type LineaFactura } from '../..
 import { cuentasDeGasto, esImputable } from '../../lib/cuentas'
 import { raizDeSeleccion, valorCategoria } from '../../lib/categoriasGasto'
 import { asegurarCategoria } from '../../services/categorias'
+import { diasEntre, sumarDias } from '../../lib/vencimientos'
 import { CategoriaGastoSelect } from './CategoriaGastoSelect'
 import { parseEuros } from '../../lib/money'
 import type { FacturaEmitida, FacturaRecibida, Tercero, TipoTercero } from '../../lib/tipos'
@@ -36,6 +37,14 @@ export function FacturaForm(props: Props) {
   const emitida = tipo === 'emitida' ? props.existente : undefined
 
   const [fecha, setFecha] = useState(existente?.fecha ?? fechaInicial)
+  // Vencimiento del pago (solo facturas recibidas); por defecto, al contado.
+  const [vencimiento, setVencimiento] = useState(recibida ? recibida.vencimiento ?? recibida.fecha : existente?.fecha ?? fechaInicial)
+  const plazoActual = /^\d{4}-\d{2}-\d{2}$/.test(fecha) && /^\d{4}-\d{2}-\d{2}$/.test(vencimiento) ? diasEntre(fecha, vencimiento) : null
+  /** Al cambiar la fecha de la factura se mantiene el plazo elegido. */
+  const cambiarFecha = (nueva: string) => {
+    if (plazoActual !== null && plazoActual >= 0 && /^\d{4}-\d{2}-\d{2}$/.test(nueva)) setVencimiento(sumarDias(nueva, plazoActual))
+    setFecha(nueva)
+  }
   const [numero, setNumero] = useState(recibida?.numero ?? '')
   const [terceroId, setTerceroId] = useState(existente?.terceroId ?? '')
   // Selección `cat:<id>` (categoría) o `cta:<codigo>` (cuenta mayor 6xx aún sin categoría).
@@ -117,6 +126,7 @@ export function FacturaForm(props: Props) {
       tipo,
       anio: existente?.ejercicio ?? anio,
       fecha,
+      vencimiento: tipo === 'recibida' ? vencimiento : undefined,
       numero,
       terceroId,
       categoriaId: seleccion,
@@ -153,7 +163,7 @@ export function FacturaForm(props: Props) {
         await guardarFacturaRecibida(
           eid,
           { anio, cuentas },
-          { fecha, numero, tercero, lineas: utiles, irpfPct, ivaDeducible, categoria, cuentaGasto: cuentaGastoFinal },
+          { fecha, numero, tercero, lineas: utiles, irpfPct, ivaDeducible, categoria, cuentaGasto: cuentaGastoFinal, vencimiento },
           recibida,
         )
         toast.success(recibida ? `Factura ${recibida.numero} actualizada` : 'Factura recibida registrada')
@@ -171,15 +181,41 @@ export function FacturaForm(props: Props) {
       <div className="grid gap-4 sm:grid-cols-3">
         <Campo k="fecha">
           <Field label="Fecha" error={errores.fecha}>
-            <Input type="date" aria-invalid={inv('fecha')} value={fecha} min={`${existente?.ejercicio ?? anio}-01-01`} max={`${existente?.ejercicio ?? anio}-12-31`} onChange={(e) => { setFecha(e.target.value); limpiar('fecha') }} />
+            <Input type="date" aria-invalid={inv('fecha')} value={fecha} min={`${existente?.ejercicio ?? anio}-01-01`} max={`${existente?.ejercicio ?? anio}-12-31`} onChange={(e) => { cambiarFecha(e.target.value); limpiar('fecha', 'vencimiento') }} />
           </Field>
         </Campo>
         {tipo === 'recibida' ? (
+          <>
           <Campo k="numero">
             <Field label="Nº de factura del proveedor" error={errores.numero}>
               <Input aria-invalid={inv('numero')} value={numero} onChange={(e) => { setNumero(e.target.value); limpiar('numero') }} maxLength={40} />
             </Field>
           </Campo>
+          <Campo k="vencimiento">
+            <Field label="Vencimiento" error={errores.vencimiento}>
+              <Input
+                type="date"
+                aria-label="Vencimiento"
+                aria-invalid={inv('vencimiento')}
+                value={vencimiento}
+                min={fecha}
+                onChange={(e) => { setVencimiento(e.target.value); limpiar('vencimiento') }}
+              />
+              <span className="flex flex-wrap gap-1 pt-1">
+                {[0, 30, 60, 90].map((dias) => (
+                  <button
+                    key={dias}
+                    type="button"
+                    onClick={(ev) => { ev.preventDefault(); setVencimiento(sumarDias(fecha, dias)); limpiar('vencimiento') }}
+                    className={`rounded border px-1.5 py-0.5 text-xs ${plazoActual === dias ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    {dias === 0 ? 'Al contado' : `${dias} días`}
+                  </button>
+                ))}
+              </span>
+            </Field>
+          </Campo>
+          </>
         ) : (
           <Field label="Número" hint="Se asigna al guardar">
             <Input value={emitida?.numero ?? `${empresa.serieFacturas}${anio}-…`} disabled />

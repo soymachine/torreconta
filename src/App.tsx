@@ -29,6 +29,7 @@ const ImprimirFactura = lazyPage(() => import('./features/facturas/ImprimirFactu
 const BalancePage = lazyPage(() => import('./features/informes/BalancePage'), 'BalancePage')
 const PygPage = lazyPage(() => import('./features/informes/PygPage'), 'PygPage')
 const IvaPage = lazyPage(() => import('./features/informes/IvaPage'), 'IvaPage')
+const VencimientosPage = lazyPage(() => import('./features/facturas/VencimientosPage'), 'VencimientosPage')
 const CierrePage = lazyPage(() => import('./features/ejercicios/CierrePage'), 'CierrePage')
 const CierreHechoPage = lazyPage(() => import('./features/ejercicios/CierrePage'), 'CierreHechoPage')
 const Modelo347Page = lazyPage(() => import('./features/informes/Modelo347Page'), 'Modelo347Page')
@@ -69,6 +70,7 @@ function AppAutorizada() {
             <Route path="/facturas-emitidas" element={<FacturasEmitidasPage />} />
             <Route path="/facturas-emitidas/:id/imprimir" element={<ImprimirFactura />} />
             <Route path="/facturas-recibidas" element={<FacturasRecibidasPage />} />
+            <Route path="/vencimientos" element={<VencimientosPage />} />
             <Route path="/terceros" element={<TercerosPage />} />
             <Route path="/categorias" element={<CategoriasPage />} />
             <Route path="/diario" element={<DiarioPage />} />

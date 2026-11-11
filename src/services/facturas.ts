@@ -151,6 +151,8 @@ export interface EntradaFacturaRecibida {
   categoria: Categoria
   /** Subcuenta elegida cuando la cuenta de la categoría tiene subcuentas. */
   cuentaGasto?: string
+  /** Fecha de vencimiento del pago (por defecto, la de la factura). */
+  vencimiento?: string
 }
 
 function borradorRecibida(
@@ -168,6 +170,8 @@ export async function guardarFacturaRecibida(
 ): Promise<string> {
   if (e.lineas.length === 0) throw new Error('La factura no tiene líneas.')
   if (!e.numero.trim()) throw new Error('Indica el número de la factura del proveedor.')
+  if (e.vencimiento && (!/^\d{4}-\d{2}-\d{2}$/.test(e.vencimiento) || e.vencimiento < e.fecha))
+    throw new Error('El vencimiento no puede ser anterior a la fecha de la factura.')
   const anio = existente?.ejercicio ?? ctx.anio
   if (anioDe(e.fecha) !== anio) throw new Error(`La fecha debe pertenecer al ejercicio ${anio}.`)
   if (existente && existente.estado !== 'pendiente') throw new Error('Deshaz el pago antes de modificar la factura.')
@@ -207,6 +211,7 @@ export async function guardarFacturaRecibida(
       ...calculo,
       categoriaId: e.categoria.id,
       cuentaGasto,
+      vencimiento: e.vencimiento || e.fecha,
       ivaDeducible: e.ivaDeducible,
       asientoId: asientoId!,
       estado: 'pendiente',

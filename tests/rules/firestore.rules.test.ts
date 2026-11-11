@@ -220,6 +220,11 @@ describe('facturas', () => {
     await assertSucceeds(setDoc(doc(ownerDb(), `empresas/${EMP}/facturasEmitidas/e1`), emitida))
     await assertSucceeds(setDoc(doc(ownerDb(), `empresas/${EMP}/facturasRecibidas/r1`), recibida))
   })
+  it('el vencimiento de una recibida no puede ser anterior a su fecha', async () => {
+    await assertSucceeds(setDoc(doc(ownerDb(), `empresas/${EMP}/facturasRecibidas/v1`), { ...recibida, vencimiento: '2026-03-12' }))
+    await assertFails(setDoc(doc(ownerDb(), `empresas/${EMP}/facturasRecibidas/v2`), { ...recibida, vencimiento: '2026-01-01' }))
+    await assertFails(setDoc(doc(ownerDb(), `empresas/${EMP}/facturasRecibidas/v3`), { ...recibida, vencimiento: 'mañana' }))
+  })
   it('la cuenta de gasto de una recibida, si existe, es del grupo 6', async () => {
     await assertSucceeds(setDoc(doc(ownerDb(), `empresas/${EMP}/facturasRecibidas/r5`), { ...recibida, cuentaGasto: '6020002' }))
     await assertFails(setDoc(doc(ownerDb(), `empresas/${EMP}/facturasRecibidas/r6`), { ...recibida, cuentaGasto: '7050001' }))

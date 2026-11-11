@@ -18,6 +18,7 @@ export interface DatosFormularioFactura {
   raizCuentaGasto?: string
   opcionesCuentaGasto?: readonly string[]
   cuentaGasto?: string
+  vencimiento?: string
   cuentaIngreso: string
   cuentasIngresoValidas: readonly string[]
   lineas: readonly LineaFormulario[]
@@ -37,6 +38,10 @@ export function validarFormularioFactura(d: DatosFormularioFactura): ErroresFact
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d.fecha)) e.fecha = 'Indica la fecha de la factura.'
   else if (!d.fecha.startsWith(`${d.anio}-`)) e.fecha = `La fecha debe estar dentro del ejercicio ${d.anio}.`
 
+  if (recibida && d.vencimiento !== undefined) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.vencimiento)) e.vencimiento = 'Indica la fecha de vencimiento.'
+    else if (/^\d{4}-\d{2}-\d{2}$/.test(d.fecha) && d.vencimiento < d.fecha) e.vencimiento = 'El vencimiento no puede ser anterior a la fecha de la factura.'
+  }
   if (recibida && !d.numero.trim()) e.numero = 'Escribe el número que figura en la factura del proveedor.'
   if (!d.terceroId) e.tercero = recibida ? 'Elige el proveedor que te ha facturado.' : 'Elige el cliente al que facturas.'
   if (recibida && !d.categoriaId) e.categoria = 'Elige en qué categoría de gasto va esta factura.'
@@ -70,6 +75,6 @@ export function validarFormularioFactura(d: DatosFormularioFactura): ErroresFact
 
 /** Orden visual de los campos, para enfocar el primero con error. */
 export function primerError(e: ErroresFactura): string | undefined {
-  const orden = ['fecha', 'numero', 'tercero', 'categoria', 'cuentaGasto', 'cuentaIngreso']
+  const orden = ['fecha', 'vencimiento', 'numero', 'tercero', 'categoria', 'cuentaGasto', 'cuentaIngreso']
   return orden.find((k) => e[k]) ?? Object.keys(e).filter((k) => k.startsWith('linea.')).sort()[0] ?? (e.lineas ? 'lineas' : undefined)
 }

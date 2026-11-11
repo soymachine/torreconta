@@ -13,6 +13,7 @@ import { FacturaDetalle } from './FacturaDetalle'
 import { FacturaForm } from './FacturaForm'
 import { faltaSubcuenta, SubcuentaGastoSelect } from './SubcuentaGastoSelect'
 import { CategoriaGastoSelect } from './CategoriaGastoSelect'
+import { hoyIso, vencimientoDe } from '../../lib/vencimientos'
 import { raizDeSeleccion } from '../../lib/categoriasGasto'
 import { asegurarCategoria } from '../../services/categorias'
 import { TesoreriaForm } from './TesoreriaForm'
@@ -28,6 +29,7 @@ export function FacturasRecibidasPage() {
   const [q, setQ] = useState('')
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set())
   const [destino, setDestino] = useState('')
+  const [hoy] = useState(() => hoyIso())
   const [subcuentaDestino, setSubcuentaDestino] = useState('')
   const [error, setError] = useState<string | null>(null)
   const abierto = ejercicio?.estado === 'abierto'
@@ -133,6 +135,7 @@ export function FacturasRecibidasPage() {
               </th>
               <th className={th}>Fecha</th>
               <th className={th}>Número</th>
+              <th className={th}>Vence</th>
               <th className={th}>Proveedor</th>
               <th className={th}>Categoría</th>
               <th className={thNum}>Base</th>
@@ -152,6 +155,10 @@ export function FacturasRecibidasPage() {
                     {formatFecha(f.fecha)} {f.ejercicio !== anio && <Badge>{f.ejercicio}</Badge>}
                   </td>
                   <td className={`${td} font-mono`}><button className="hover:underline" onClick={() => setParams({ ver: f.id })}>{f.numero}</button></td>
+                  <td className={`${td} whitespace-nowrap`}>
+                    {formatFecha(vencimientoDe(f))}{' '}
+                    {f.estado === 'pendiente' && vencimientoDe(f) < hoy && <Badge tone="amber">Vencida</Badge>}
+                  </td>
                   <td className={td}>{f.terceroNombre}</td>
                   <td className={td}>
                     {c && <span className="mr-1.5 inline-block h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />}
@@ -185,7 +192,7 @@ export function FacturasRecibidasPage() {
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-slate-300 font-semibold">
-              <td className={td} colSpan={5}>Total</td>
+              <td className={td} colSpan={6}>Total</td>
               <td className={tdNum}><Euros cents={tot.base} /></td>
               <td className={tdNum}><Euros cents={tot.iva} /></td>
               <td className={tdNum}><Euros cents={tot.total} /></td>

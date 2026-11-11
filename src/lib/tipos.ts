@@ -56,6 +56,8 @@ export interface FacturaRecibida extends FacturaBase {
   categoriaId: string
   /** Cuenta (o subcuenta) 6xx donde se contabilizó; si falta, la de la categoría. */
   cuentaGasto?: string
+  /** Fecha de vencimiento (AAAA-MM-DD); si falta, la de la factura. */
+  vencimiento?: string
   ivaDeducible: boolean
   estado: 'pendiente' | 'pagada'
   pago: MovimientoTesoreria | null

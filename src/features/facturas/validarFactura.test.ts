@@ -71,3 +71,11 @@ describe('subcuenta de gasto', () => {
     expect(validarFormularioFactura({ ...base, raizCuentaGasto: '602', opcionesCuentaGasto: [] }).cuentaGasto).toMatch(/no tiene subcuentas activas/)
   })
 })
+
+describe('vencimiento', () => {
+  it('no puede ser anterior a la fecha ni estar vacío', () => {
+    expect(validarFormularioFactura({ ...base, vencimiento: '2026-04-01' })).toEqual({})
+    expect(validarFormularioFactura({ ...base, vencimiento: '2026-02-01' }).vencimiento).toBe('El vencimiento no puede ser anterior a la fecha de la factura.')
+    expect(validarFormularioFactura({ ...base, vencimiento: '' }).vencimiento).toBe('Indica la fecha de vencimiento.')
+  })
+})
