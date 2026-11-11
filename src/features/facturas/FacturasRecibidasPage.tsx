@@ -133,6 +133,7 @@ export function FacturasRecibidasPage() {
               <th className={th}>
                 <Checkbox checked={todas} onCheckedChange={() => setSeleccion(todas ? new Set() : new Set(seleccionables.map((f) => f.id)))} aria-label="Seleccionar todas" />
               </th>
+              <th className={th}><span className="sr-only">Acciones</span></th>
               <th className={th}>Fecha</th>
               <th className={th}>Número</th>
               <th className={th}>Vence</th>
@@ -142,7 +143,6 @@ export function FacturasRecibidasPage() {
               <th className={thNum}>IVA</th>
               <th className={thNum}>Total</th>
               <th className={th}>Estado</th>
-              <th className={th} />
             </tr>
           </thead>
           <tbody>
@@ -151,6 +151,23 @@ export function FacturasRecibidasPage() {
               return (
                 <tr key={f.id} className="border-t border-slate-100">
                   <td className={td}><Checkbox disabled={f.ejercicio !== anio} checked={seleccion.has(f.id)} onCheckedChange={() => toggle(f.id)} aria-label={`Seleccionar ${f.numero}`} /></td>
+                  <td className={`${td} whitespace-nowrap`}>
+                    {f.estado === 'pendiente' ? (
+                      <>
+                        <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'pagar', f })}>Pagar</Button>
+                        {abierto && f.ejercicio === anio && <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'editar', f })}>Editar</Button>}
+                        {abierto && f.ejercicio === anio && (
+                          <Button variant="ghost" className="px-2 py-1 text-red-700" onClick={async () => (await confirmar({ titulo: `¿Borrar la factura ${f.numero}?`, descripcion: 'Se borrará también su asiento.', accion: 'Borrar', destructiva: true })) && accion(() => borrarFacturaRecibida(eid, f))}>
+                            Borrar
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      <Button variant="ghost" className="px-2 py-1" onClick={async () => (await confirmar({ titulo: '¿Deshacer el pago?', descripcion: 'Se borrará el asiento del pago y la factura volverá a quedar pendiente.', accion: 'Deshacer pago', destructiva: true })) && accion(() => deshacerPago(eid, f))}>
+                        Deshacer pago
+                      </Button>
+                    )}
+                  </td>
                   <td className={`${td} whitespace-nowrap`}>
                     {formatFecha(f.fecha)} {f.ejercicio !== anio && <Badge>{f.ejercicio}</Badge>}
                   </td>
@@ -169,34 +186,17 @@ export function FacturasRecibidasPage() {
                   <td className={tdNum}><Euros cents={f.cuotaIvaCent} />{!f.ivaDeducible && <span className="ml-1 text-xs text-slate-400" title="IVA no deducible">ND</span>}</td>
                   <td className={`${tdNum} font-medium`}><Euros cents={f.totalCent} /></td>
                   <td className={td}>{f.estado === 'pagada' ? <Badge tone="green">Pagada</Badge> : <Badge tone="amber">Pendiente</Badge>}</td>
-                  <td className={`${td} whitespace-nowrap text-right`}>
-                    {f.estado === 'pendiente' ? (
-                      <>
-                        <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'pagar', f })}>Pagar</Button>
-                        {abierto && f.ejercicio === anio && <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'editar', f })}>Editar</Button>}
-                        {abierto && f.ejercicio === anio && (
-                          <Button variant="ghost" className="px-2 py-1 text-red-700" onClick={async () => (await confirmar({ titulo: `¿Borrar la factura ${f.numero}?`, descripcion: 'Se borrará también su asiento.', accion: 'Borrar', destructiva: true })) && accion(() => borrarFacturaRecibida(eid, f))}>
-                            Borrar
-                          </Button>
-                        )}
-                      </>
-                    ) : (
-                      <Button variant="ghost" className="px-2 py-1" onClick={async () => (await confirmar({ titulo: '¿Deshacer el pago?', descripcion: 'Se borrará el asiento del pago y la factura volverá a quedar pendiente.', accion: 'Deshacer pago', destructiva: true })) && accion(() => deshacerPago(eid, f))}>
-                        Deshacer pago
-                      </Button>
-                    )}
-                  </td>
                 </tr>
               )
             })}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-slate-300 font-semibold">
-              <td className={td} colSpan={6}>Total</td>
+              <td className={td} colSpan={7}>Total</td>
               <td className={tdNum}><Euros cents={tot.base} /></td>
               <td className={tdNum}><Euros cents={tot.iva} /></td>
               <td className={tdNum}><Euros cents={tot.total} /></td>
-              <td colSpan={2} />
+              <td />
             </tr>
           </tfoot>
         </table>

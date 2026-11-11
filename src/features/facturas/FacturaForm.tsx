@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import { useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -178,7 +179,7 @@ export function FacturaForm(props: Props) {
 
   return (
     <form ref={formRef} onSubmit={submit} className="space-y-5" noValidate>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Campo k="fecha">
           <Field label="Fecha" error={errores.fecha}>
             <Input type="date" aria-invalid={inv('fecha')} value={fecha} min={`${existente?.ejercicio ?? anio}-01-01`} max={`${existente?.ejercicio ?? anio}-12-31`} onChange={(e) => { cambiarFecha(e.target.value); limpiar('fecha', 'vencimiento') }} />
@@ -230,7 +231,7 @@ export function FacturaForm(props: Props) {
                 <option key={t.id} value={t.id}>{t.nombre}{t.nif ? ` · ${t.nif}` : ''}</option>
               ))}
             </Select>
-            <Button type="button" variant="secondary" onClick={() => setNuevoTercero(true)} title="Nuevo" aria-label="Crear tercero">+</Button>
+            <Button type="button" variant="secondary" onClick={() => setNuevoTercero(true)} title="Nuevo" aria-label="Crear tercero" className="shrink-0">+</Button>
           </div>
         </Field>
         </Campo>
@@ -384,7 +385,7 @@ export function FacturaForm(props: Props) {
 /** Envoltorio que localiza un campo para enfocarlo cuando tiene error. */
 function Campo({ k, className, children }: { k: string; className?: string; children: ReactNode }) {
   return (
-    <div data-campo={k} className={className}>
+    <div data-campo={k} className={cn('min-w-0', className)}>
       {children}
     </div>
   )

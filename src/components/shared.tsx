@@ -52,7 +52,7 @@ export function Modal({
   return (
     <Dialog open onOpenChange={(abierto) => !abierto && onClose()}>
       <DialogContent
-        className={cn('max-h-[calc(100dvh-2rem)] overflow-y-auto', wide ? 'sm:max-w-5xl' : 'sm:max-w-xl')}
+        className={cn('max-h-[calc(100dvh-2rem)] grid-cols-[minmax(0,1fr)] overflow-y-auto', wide ? 'sm:max-w-5xl' : 'sm:max-w-xl')}
         // Evita que un clic fuera (p. ej. en un desplegable de un diálogo anidado) cierre el formulario.
         onInteractOutside={(e) => e.preventDefault()}
       >
