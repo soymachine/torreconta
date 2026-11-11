@@ -1,3 +1,4 @@
+import { Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useConfirmar } from '@/components/Confirmar'
@@ -143,6 +144,7 @@ export function FacturasRecibidasPage() {
               <th className={thNum}>IVA</th>
               <th className={thNum}>Total</th>
               <th className={th}>Estado</th>
+              <th className={th}><span className="sr-only">Borrar</span></th>
             </tr>
           </thead>
           <tbody>
@@ -154,13 +156,8 @@ export function FacturasRecibidasPage() {
                   <td className={`${td} whitespace-nowrap`}>
                     {f.estado === 'pendiente' ? (
                       <>
+                        {abierto && f.ejercicio === anio && <Button variant="ghost" className="px-2 py-1 text-sky-700 hover:bg-sky-50 hover:text-sky-800" onClick={() => setModal({ tipo: 'editar', f })}>Editar</Button>}
                         <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'pagar', f })}>Pagar</Button>
-                        {abierto && f.ejercicio === anio && <Button variant="ghost" className="px-2 py-1" onClick={() => setModal({ tipo: 'editar', f })}>Editar</Button>}
-                        {abierto && f.ejercicio === anio && (
-                          <Button variant="ghost" className="px-2 py-1 text-red-700" onClick={async () => (await confirmar({ titulo: `¿Borrar la factura ${f.numero}?`, descripcion: 'Se borrará también su asiento.', accion: 'Borrar', destructiva: true })) && accion(() => borrarFacturaRecibida(eid, f))}>
-                            Borrar
-                          </Button>
-                        )}
                       </>
                     ) : (
                       <Button variant="ghost" className="px-2 py-1" onClick={async () => (await confirmar({ titulo: '¿Deshacer el pago?', descripcion: 'Se borrará el asiento del pago y la factura volverá a quedar pendiente.', accion: 'Deshacer pago', destructiva: true })) && accion(() => deshacerPago(eid, f))}>
@@ -186,6 +183,13 @@ export function FacturasRecibidasPage() {
                   <td className={tdNum}><Euros cents={f.cuotaIvaCent} />{!f.ivaDeducible && <span className="ml-1 text-xs text-slate-400" title="IVA no deducible">ND</span>}</td>
                   <td className={`${tdNum} font-medium`}><Euros cents={f.totalCent} /></td>
                   <td className={td}>{f.estado === 'pagada' ? <Badge tone="green">Pagada</Badge> : <Badge tone="amber">Pendiente</Badge>}</td>
+                  <td className={`${td} w-10 px-1 text-right`}>
+                    {f.estado === 'pendiente' && abierto && f.ejercicio === anio && (
+                      <Button variant="ghost" className="size-8 px-0 text-red-700 hover:bg-red-50 hover:text-red-800" title="Borrar" aria-label="Borrar" onClick={async () => (await confirmar({ titulo: `¿Borrar la factura ${f.numero}?`, descripcion: 'Se borrará también su asiento.', accion: 'Borrar', destructiva: true })) && accion(() => borrarFacturaRecibida(eid, f))}>
+                        <Trash2 />
+                      </Button>
+                    )}
+                  </td>
                 </tr>
               )
             })}
@@ -196,7 +200,7 @@ export function FacturasRecibidasPage() {
               <td className={tdNum}><Euros cents={tot.base} /></td>
               <td className={tdNum}><Euros cents={tot.iva} /></td>
               <td className={tdNum}><Euros cents={tot.total} /></td>
-              <td />
+              <td colSpan={2} />
             </tr>
           </tfoot>
         </table>

@@ -1,4 +1,6 @@
+import { FileDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button, Card, Field, Input } from '../../components/base'
@@ -8,6 +10,8 @@ import type { FacturaRecibida } from '../../lib/tipos'
 import { hoyIso, sumarDias, vencidasPendientes, vencimientosEntre } from '../../lib/vencimientos'
 import { useLibros } from '../libros/LibrosProvider'
 import { TesoreriaForm } from './TesoreriaForm'
+import { useLogo } from '../empresa/useLogo'
+import { exportarVencimientosPdf } from './exportarVencimientosPdf'
 
 function estadoVencimiento(dias: number, pagada: boolean) {
   if (pagada) return <Badge tone="green">Pagada</Badge>
@@ -18,7 +22,9 @@ function estadoVencimiento(dias: number, pagada: boolean) {
 
 /** Listado de vencimientos de facturas recibidas entre dos fechas. */
 export function VencimientosPage() {
-  const { recibidas, recibidasAnteriores } = useLibros()
+  const { recibidas, recibidasAnteriores, empresa } = useLibros()
+  const logo = useLogo()
+  const [exportando, setExportando] = useState(false)
   const [hoy] = useState(() => hoyIso())
   const [desde, setDesde] = useState(hoy)
   const [hasta, setHasta] = useState(() => sumarDias(hoyIso(), 30))
@@ -44,12 +50,30 @@ export function VencimientosPage() {
       ),
     )
 
+  const exportarPdf = async () => {
+    setExportando(true)
+    try {
+      await exportarVencimientosPdf({ empresa, desde, hasta, soloPendientes, filas, vencidas, logo })
+    } catch {
+      toast.error('No se ha podido generar el PDF.')
+    } finally {
+      setExportando(false)
+    }
+  }
+
   return (
     <div className="space-y-5">
       <PageHeader
         title="Vencimientos de pago"
         subtitle="Facturas recibidas que vencen entre las fechas elegidas"
-        actions={<Button variant="secondary" onClick={exportar} disabled={!filas.length}>Exportar CSV</Button>}
+        actions={
+          <>
+            <Button variant="secondary" onClick={exportar} disabled={!filas.length}>Exportar CSV</Button>
+            <Button variant="secondary" onClick={exportarPdf} disabled={exportando || !filas.length}>
+              <FileDown /> {exportando ? 'Generando…' : 'Exportar PDF'}
+            </Button>
+          </>
+        }
       />
 
       <div className="grid gap-4 md:grid-cols-[2fr_1fr]">
