@@ -44,6 +44,7 @@ describe('imputabilidad y subcuentas', () => {
     expect(validarNuevaCuenta('8000001', cuentas)).toEqual({ ok: false, error: 'sin-padre' })
     expect(validarNuevaCuenta('800', cuentas)).toEqual({ ok: false, error: 'sin-padre' })
     expect(mensajeErrorNuevaCuenta('430', 'existe')).toBe('Ya existe la cuenta 430.')
+    expect(mensajeErrorNuevaCuenta('4300009', 'existe', [{ codigo: '4300009', nombre: 'x', naturaleza: 'activo', activa: false }])).toMatch(/está desactivada/)
     expect(mensajeErrorNuevaCuenta('6010001', 'padre-grupo')).toMatch(/Antes crea la cuenta de 3 dígitos 601/)
   })
 })

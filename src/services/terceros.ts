@@ -1,4 +1,4 @@
-import { getDoc, getDocs, limit, query, runTransaction, updateDoc, where, writeBatch } from 'firebase/firestore'
+import { getDoc, getDocs, limit, query, runTransaction, updateDoc, where, writeBatch, type DocumentData, type DocumentReference, type Transaction } from 'firebase/firestore'
 import { db } from '../firebase'
 import type { Cuenta } from '../lib/cuentas'
 import { CUENTA_TIPO, siguienteSubcuenta, validarCodigoTercero } from '../lib/terceros'
@@ -9,6 +9,53 @@ import type { Ejercicio } from '../lib/tipos'
 
 export type DatosTercero = Omit<Tercero, 'id' | 'cuenta' | 'activo'>
 
+type EstadoSubcuenta = 'nueva' | 'reutilizar'
+
+/**
+ * ¿Se puede usar este código para un tercero? Si la cuenta no existe se
+ * creará; si existe desactivada, sin otro tercero y sin movimientos (p. ej.
+ * la de un cliente eliminado), se reutilizará reactivándola.
+ */
+export async function comprobarSubcuentaLibre(
+  eid: string,
+  codigo: string,
+  tipo: TipoTercero,
+  excluirTerceroId?: string,
+): Promise<EstadoSubcuenta> {
+  const snap = await getDoc(cuentaRef(eid, codigo))
+  if (!snap.exists()) return 'nueva'
+  const cuenta = snap.data() as Cuenta
+  if (cuenta.activa !== false) throw new Error(`La subcuenta ${codigo} ya existe.`)
+  if (cuenta.naturaleza !== CUENTA_TIPO[tipo].naturaleza)
+    throw new Error(`La subcuenta ${codigo} existe (desactivada) con otra naturaleza y no se puede reutilizar.`)
+  const [ters, asis] = await Promise.all([
+    getDocs(query(tercerosCol(eid), where('cuenta', '==', codigo), limit(2))),
+    getDocs(query(asientosCol(eid), where('cuentas', 'array-contains', codigo), limit(1))),
+  ])
+  const otro = ters.docs.find((d) => d.id !== excluirTerceroId)
+  if (otro) throw new Error(`La subcuenta ${codigo} ya es de «${otro.data().nombre}».`)
+  if (!asis.empty) throw new Error(`La subcuenta ${codigo} está desactivada pero tiene movimientos: no se puede reutilizar.`)
+  return 'reutilizar'
+}
+
+interface Escritor {
+  set(ref: DocumentReference<DocumentData>, data: DocumentData): unknown
+  update(ref: DocumentReference<DocumentData>, data: DocumentData): unknown
+}
+
+/** Crea la subcuenta o reactiva la desactivada que se reutiliza. */
+function ocuparSubcuenta(w: Escritor, eid: string, codigo: string, nombre: string, tipo: TipoTercero, estado: EstadoSubcuenta) {
+  if (estado === 'nueva') w.set(cuentaRef(eid, codigo), { codigo, nombre, naturaleza: CUENTA_TIPO[tipo].naturaleza, activa: true })
+  else w.update(cuentaRef(eid, codigo), { nombre, activa: true })
+}
+
+/** En una transacción, comprueba que la subcuenta sigue como se comprobó. */
+async function confirmarEnTx(tx: Transaction, eid: string, codigo: string, estado: EstadoSubcuenta) {
+  const snap = await tx.get(cuentaRef(eid, codigo))
+  const ok = estado === 'nueva' ? !snap.exists() : snap.exists() && (snap.data() as Cuenta).activa === false
+  if (!ok) throw new Error(`La subcuenta ${codigo} acaba de cambiar. Inténtalo de nuevo.`)
+}
+
 export async function crearTercero(
   eid: string,
   datos: DatosTercero,
@@ -18,17 +65,12 @@ export async function crearTercero(
   const codigo = codigoElegido || siguienteSubcuenta(datos.tipo, cuentas)
   const error = validarCodigoTercero(datos.tipo, codigo, cuentas)
   if (error) throw new Error(error)
+  const estado = await comprobarSubcuentaLibre(eid, codigo, datos.tipo)
   const ref = nuevoId(tercerosCol(eid))
   const tercero: Tercero = { ...datos, id: ref.id, cuenta: codigo, activo: true }
   await runTransaction(db, async (tx) => {
-    const existente = await tx.get(cuentaRef(eid, codigo))
-    if (existente.exists()) throw new Error(`La subcuenta ${codigo} ya existe. Inténtalo de nuevo.`)
-    tx.set(cuentaRef(eid, codigo), {
-      codigo,
-      nombre: datos.nombre,
-      naturaleza: CUENTA_TIPO[datos.tipo].naturaleza,
-      activa: true,
-    })
+    await confirmarEnTx(tx, eid, codigo, estado)
+    ocuparSubcuenta(tx, eid, codigo, datos.nombre, datos.tipo, estado)
     const { id: _id, ...sinId } = tercero
     tx.set(ref, sinId)
   })
@@ -75,6 +117,7 @@ export async function cambiarTipoTercero(
   const codigo = codigoElegido || siguienteSubcuenta(nuevoTipo, cuentas)
   const errorCodigo = validarCodigoTercero(nuevoTipo, codigo, cuentas)
   if (errorCodigo) throw new Error(errorCodigo)
+  const estado = await comprobarSubcuentaLibre(eid, codigo, nuevoTipo, tercero.id)
   const actualizado: Tercero = {
     ...tercero,
     tipo: nuevoTipo,
@@ -83,9 +126,8 @@ export async function cambiarTipoTercero(
     cuentaGastoPorDefecto: nuevoTipo === 'cliente' ? null : tercero.cuentaGastoPorDefecto ?? null,
   }
   await runTransaction(db, async (tx) => {
-    const existente = await tx.get(cuentaRef(eid, codigo))
-    if (existente.exists()) throw new Error(`La subcuenta ${codigo} ya existe. Inténtalo de nuevo.`)
-    tx.set(cuentaRef(eid, codigo), { codigo, nombre: tercero.nombre, naturaleza: CUENTA_TIPO[nuevoTipo].naturaleza, activa: true })
+    await confirmarEnTx(tx, eid, codigo, estado)
+    ocuparSubcuenta(tx, eid, codigo, tercero.nombre, nuevoTipo, estado)
     tx.update(cuentaRef(eid, tercero.cuenta), { activa: false })
     tx.update(terceroRef(eid, tercero.id), {
       tipo: actualizado.tipo,
@@ -128,7 +170,7 @@ export async function cambiarCodigoTercero(eid: string, tercero: Tercero, nuevoC
   if (nuevoCodigo === viejo) return tercero
   const error = validarCodigoTercero(tercero.tipo, nuevoCodigo, cuentas)
   if (error) throw new Error(error)
-  if ((await getDoc(cuentaRef(eid, nuevoCodigo))).exists()) throw new Error(`La subcuenta ${nuevoCodigo} ya existe.`)
+  const estado = await comprobarSubcuentaLibre(eid, nuevoCodigo, tercero.tipo, tercero.id)
 
   const [asientos, emitidas, recibidas] = await Promise.all([
     getDocs(query(asientosCol(eid), where('cuentas', 'array-contains', viejo))),
@@ -144,7 +186,7 @@ export async function cambiarCodigoTercero(eid: string, tercero: Tercero, nuevoC
 
   const cambiar = (c: string) => (c === viejo ? nuevoCodigo : c)
   const ops: ((b: ReturnType<typeof writeBatch>) => void)[] = [
-    (b) => b.set(cuentaRef(eid, nuevoCodigo), { codigo: nuevoCodigo, nombre: tercero.nombre, naturaleza: CUENTA_TIPO[tercero.tipo].naturaleza, activa: true }),
+    (b) => ocuparSubcuenta(b, eid, nuevoCodigo, tercero.nombre, tercero.tipo, estado),
     ...asientos.docs.map((d) => (b: ReturnType<typeof writeBatch>) => {
       const lineas = (d.data().lineas as Linea[]).map((l) => ({ ...l, cuenta: cambiar(l.cuenta) }))
       b.update(asientoRef(eid, d.id), { lineas, cuentas: [...new Set((d.data().cuentas as string[]).map(cambiar))] })

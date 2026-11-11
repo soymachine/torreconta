@@ -104,6 +104,8 @@ describe('cuentas', () => {
   it('solo permite cambiar nombre y estado, y nunca borrar', async () => {
     const r = doc(ownerDb(), `empresas/${EMP}/cuentas/430`)
     await assertSucceeds(updateDoc(r, { nombre: 'Clientes nacionales', activa: false }))
+    // Reutilizar una subcuenta desactivada: se reactiva y se renombra.
+    await assertSucceeds(updateDoc(r, { nombre: 'Cliente nuevo', activa: true }))
     await assertFails(updateDoc(r, { naturaleza: 'pasivo' }))
     await assertFails(deleteDoc(r))
   })

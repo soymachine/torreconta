@@ -68,12 +68,14 @@ export function validarNuevaCuenta(
   return { ok: true, padre, tipo: codigo.length === 3 ? 'cuenta' : 'subcuenta' }
 }
 
-export function mensajeErrorNuevaCuenta(codigo: string, error: ErrorNuevaCuenta): string {
+export function mensajeErrorNuevaCuenta(codigo: string, error: ErrorNuevaCuenta, cuentas: readonly Cuenta[] = []): string {
   switch (error) {
     case 'formato':
       return 'El código debe tener entre 3 y 12 dígitos: 3 para una cuenta del PGC (p. ej. 601) y 4 o más para una subcuenta (p. ej. 6020001).'
     case 'existe':
-      return `Ya existe la cuenta ${codigo}.`
+      return cuentas.find((c) => c.codigo === codigo)?.activa === false
+        ? `La cuenta ${codigo} ya existe pero está desactivada: márcala con «Mostrar inactivas» y pulsa «Activar».`
+        : `Ya existe la cuenta ${codigo}.`
     case 'sin-padre':
       return `No existe el grupo o subgrupo del que colgaría la ${codigo}.`
     case 'padre-grupo':

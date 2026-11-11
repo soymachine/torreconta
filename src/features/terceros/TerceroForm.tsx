@@ -4,7 +4,7 @@ import { errorMsg } from '../../components/shared'
 import { Alert, Button, Field, Input, Select } from '../../components/base'
 import { isValidNif, normalizeNif } from '../../lib/nif'
 import type { Tercero, TipoTercero } from '../../lib/tipos'
-import { siguienteSubcuenta, validarCodigoTercero } from '../../lib/terceros'
+import { esSubcuentaReutilizable, siguienteSubcuenta, validarCodigoTercero } from '../../lib/terceros'
 import { cuentasDeGasto } from '../../lib/cuentas'
 import { useConfirmar } from '../../components/Confirmar'
 import { SubcuentaGastoSelect } from '../facturas/SubcuentaGastoSelect'
@@ -31,7 +31,7 @@ export function TerceroForm({
   tiposPermitidos?: TipoTercero[]
   onDone: (t?: Tercero) => void
 }) {
-  const { eid, cuentas, categorias } = useLibros()
+  const { eid, cuentas, categorias, terceros } = useLibros()
   const [tipo, setTipo] = useState<TipoTercero>(tercero?.tipo ?? tipoInicial)
   const [nombre, setNombre] = useState(tercero?.nombre ?? '')
   const [nif, setNif] = useState(tercero?.nif ?? '')
@@ -64,8 +64,10 @@ export function TerceroForm({
   const sugerida = tercero && !cambiaTipo ? tercero.cuenta : siguienteSubcuenta(tipo, cuentas)
   const codigoFinal = codigoEditado || sugerida
   const errorCodigo = codigoEditado
-    ? validarCodigoTercero(tipo, codigoFinal, cuentas, tercero && !cambiaTipo ? tercero.cuenta : undefined)
+    ? validarCodigoTercero(tipo, codigoFinal, cuentas, tercero && !cambiaTipo ? tercero.cuenta : undefined, terceros)
     : null
+  // Subcuenta desactivada de un tercero eliminado: se reactiva al guardar.
+  const reutiliza = !errorCodigo && codigoFinal !== tercero?.cuenta && esSubcuentaReutilizable(codigoFinal, cuentas, terceros)
   const nuevaCuenta = cambiaTipo ? codigoFinal : null
   const raizCat = raizDeSeleccion(seleccionCat, categorias)
   const subcuentaValida = !!raizCat && cuentasDeGasto(raizCat, cuentas).length > 1
@@ -144,7 +146,9 @@ export function TerceroForm({
         label="Subcuenta"
         error={errorCodigo ?? undefined}
         hint={
-          tercero && !cambiaTipo
+          reutiliza
+            ? `Se reutilizará la subcuenta ${codigoFinal}, que estaba desactivada`
+            : tercero && !cambiaTipo
             ? `Puedes cambiarla (p. ej. ${tercero.cuenta.slice(0, 3)}0999 para que salga al final)${conMovimientos ? '; sus movimientos se trasladarán' : ''}`
             : `Vacía = la siguiente libre (${sugerida}). Puedes elegir otra, p. ej. ${sugerida.slice(0, 3)}0999`
         }

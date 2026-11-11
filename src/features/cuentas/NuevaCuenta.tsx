@@ -35,13 +35,13 @@ export function NuevaCuenta({ cuentas, onDone }: { cuentas: Cuenta[]; onDone: ()
     ? '3 dígitos: cuenta del PGC (p. ej. 601). 4 o más: subcuenta (p. ej. 6020001).'
     : check.ok
       ? `${check.tipo === 'cuenta' ? 'Cuenta' : 'Subcuenta'} de ${check.padre.codigo} · ${check.padre.nombre}`
-      : mensajeErrorNuevaCuenta(codigo, check.error)
+      : mensajeErrorNuevaCuenta(codigo, check.error, cuentas)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     const v = validarNuevaCuenta(codigo, cuentas)
-    if (!v.ok) return setError(mensajeErrorNuevaCuenta(codigo, v.error))
+    if (!v.ok) return setError(mensajeErrorNuevaCuenta(codigo, v.error, cuentas))
     if (nombre.trim().length < 2) return setError('Escribe un nombre para la cuenta.')
     if (v.padre.naturaleza === 'mixta' && !naturaleza) return setError('Elige la naturaleza de la cuenta.')
     setSaving(true)
