@@ -240,10 +240,19 @@ describe('facturas', () => {
     await assertFails(setDoc(doc(ownerDb(), `empresas/${EMP}/facturasEmitidas/e9`), cerrada))
     await assertFails(setDoc(doc(intrusoDb(), `empresas/${EMP}/facturasEmitidas/e1`), emitida))
   })
-  it('no deja cambiar el número de una factura emitida', async () => {
+  it('el número de una emitida solo cambia al renumerar (número y secuencia coherentes)', async () => {
     const r = doc(ownerDb(), `empresas/${EMP}/facturasEmitidas/e1`)
     await assertSucceeds(setDoc(r, emitida))
     await assertFails(updateDoc(r, { numero: 'F2026-0002' }))
+    await assertFails(updateDoc(r, { numero: 'F2026-0010', secuencia: 11 }))
+    await assertFails(updateDoc(r, { numero: 'F2026-0010', secuencia: 10, baseCent: 1 }))
+    await assertSucceeds(updateDoc(r, { numero: 'F2026-0010', secuencia: 10 }))
+  })
+  it('no deja renumerar facturas de un ejercicio cerrado', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `empresas/${EMP}/facturasEmitidas/vieja2`), { ...emitida, ejercicio: 2025, fecha: '2025-05-01' })
+    })
+    await assertFails(updateDoc(doc(ownerDb(), `empresas/${EMP}/facturasEmitidas/vieja2`), { numero: 'F2026-0010', secuencia: 10 }))
   })
   it('en un ejercicio cerrado solo se puede registrar el cobro', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {

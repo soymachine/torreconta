@@ -3,7 +3,7 @@
  * transacción la factura, su asiento y los contadores del ejercicio, para que
  * la contabilidad nunca quede a medias.
  */
-import { getDocs, query, runTransaction, where, writeBatch, type DocumentReference, type Transaction } from 'firebase/firestore'
+import { getDoc, getDocs, query, runTransaction, where, writeBatch, type DocumentReference, type Transaction } from 'firebase/firestore'
 import { db } from '../firebase'
 import { aAsientoData, validarAsiento, type BorradorAsiento, type OrigenAsiento } from '../lib/asientos'
 import {
@@ -15,8 +15,8 @@ import {
   type LineaFactura,
 } from '../lib/contabilizacion'
 import { resolverCuentaGasto, type Cuenta } from '../lib/cuentas'
-import type { Categoria, FacturaEmitida, FacturaRecibida, Tercero } from '../lib/tipos'
-import { validarInicioNumeracion } from '../lib/numeracion'
+import type { Categoria, Ejercicio, FacturaEmitida, FacturaRecibida, Tercero } from '../lib/tipos'
+import { planRenumeracion, renumerarTexto, validarRenumeracion } from '../lib/numeracion'
 import { leerEjercicioAbierto } from './ejercicios'
 import { asientoRef, asientosCol, ejercicioRef, emitidaRef, emitidasCol, nuevoId, recibidaRef, recibidasCol } from './paths'
 
@@ -141,18 +141,58 @@ export async function borrarFacturaEmitida(eid: string, f: FacturaEmitida) {
 }
 
 /**
- * Cambia el número de la próxima factura emitida del ejercicio (p. ej. al
- * empezar a usar la app a mitad de año). Nunca por debajo de una ya emitida.
+ * Renumera todas las facturas emitidas del ejercicio de forma consecutiva desde
+ * `inicio`, conservando su orden, y actualiza el concepto de sus asientos (el de
+ * la factura y el del cobro, si su ejercicio sigue abierto). Sin facturas,
+ * solo fija el número de la primera.
  */
-export async function cambiarInicioNumeracion(eid: string, anio: number, serie: string, siguiente: number) {
-  const emitidas = await getDocs(query(emitidasCol(eid), where('ejercicio', '==', anio)))
-  const ultima = Math.max(0, ...emitidas.docs.map((d) => d.data().secuencia as number))
-  const error = validarInicioNumeracion(siguiente, ultima, numeroFactura(serie, anio, ultima))
+export async function renumerarFacturasEmitidas(eid: string, anio: number, inicio: number) {
+  const ej = await getDoc(ejercicioRef(eid, anio))
+  if ((ej.data() as Ejercicio | undefined)?.estado !== 'abierto') throw new Error(`El ejercicio ${anio} no está abierto.`)
+  const snap = await getDocs(query(emitidasCol(eid), where('ejercicio', '==', anio)))
+  const facturas = snap.docs.map((d) => ({ ...(d.data() as Omit<FacturaEmitida, 'id'>), id: d.id }))
+  const primera = facturas.length ? Math.min(...facturas.map((f) => f.secuencia)) : undefined
+  const error = validarRenumeracion(inicio, facturas.length, primera)
   if (error) throw new Error(error)
-  await runTransaction(db, async (tx) => {
-    await leerEjercicioAbierto(tx, eid, anio)
-    tx.update(ejercicioRef(eid, anio), { contadorFacturas: siguiente - 1 })
+  const { cambios, ultima } = planRenumeracion(facturas, inicio)
+  const porId = new Map(facturas.map((f) => [f.id, f]))
+
+  // Asientos a retocar: el de cada factura y el de su cobro (si su ejercicio está abierto).
+  const anios = new Set(facturas.filter((f) => f.cobro).map((f) => Number(f.cobro!.fecha.slice(0, 4))))
+  const abiertos = new Set([anio])
+  for (const a of anios) {
+    if (a === anio) continue
+    const e = await getDoc(ejercicioRef(eid, a))
+    if ((e.data() as Ejercicio | undefined)?.estado === 'abierto') abiertos.add(a)
+  }
+  const asientoIds = cambios.flatMap((c) => {
+    const f = porId.get(c.id)!
+    const ids = [f.asientoId]
+    if (f.cobro && abiertos.has(Number(f.cobro.fecha.slice(0, 4)))) ids.push(f.cobro.asientoId)
+    return ids.map((id) => ({ id, c }))
   })
+  const asientos = await Promise.all(asientoIds.map(async ({ id, c }) => ({ ref: asientoRef(eid, id), snap: await getDoc(asientoRef(eid, id)), c })))
+
+  type Op = (b: ReturnType<typeof writeBatch>) => void
+  const ops: Op[] = [
+    ...cambios
+      .filter((c) => c.numeroNuevo !== c.numeroAntes || porId.get(c.id)!.secuencia !== c.secuencia)
+      .map((c): Op => (b) => b.update(emitidaRef(eid, c.id), { numero: c.numeroNuevo, secuencia: c.secuencia })),
+    ...asientos
+      .filter((a) => a.snap.exists())
+      .map((a): Op => (b) => {
+        const concepto = a.snap.data()!.concepto as string
+        const nuevo = renumerarTexto(concepto, a.c.numeroAntes, a.c.numeroNuevo)
+        if (nuevo !== concepto) b.update(a.ref, { concepto: nuevo })
+      }),
+    (b) => b.update(ejercicioRef(eid, anio), { contadorFacturas: ultima }),
+  ]
+  for (let i = 0; i < ops.length; i += 450) {
+    const b = writeBatch(db)
+    ops.slice(i, i + 450).forEach((op) => op(b))
+    await b.commit()
+  }
+  return { renumeradas: cambios.length, ultima }
 }
 
 /* ───────────────────────────── Recibidas ───────────────────────────── */

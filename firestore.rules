@@ -234,6 +234,12 @@ service cloud.firestore {
           && request.resource.data.numero == resource.data.numero
           && request.resource.data.secuencia == resource.data.secuencia
           && (ejercicioAbierto(resource.data.ejercicio) || soloTesoreria());
+        // Renumerar las facturas del ejercicio: solo cambian número y secuencia,
+        // y el número termina en la nueva secuencia.
+        allow update: if autorizado(eid) && emitidaValida()
+          && ejercicioAbierto(resource.data.ejercicio)
+          && cambiaSolo(['numero', 'secuencia'])
+          && request.resource.data.numero.matches('.*-0*' + string(request.resource.data.secuencia) + '$');
         allow delete: if autorizado(eid) && ejercicioAbierto(resource.data.ejercicio);
       }
 
