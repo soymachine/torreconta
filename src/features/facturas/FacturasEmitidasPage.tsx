@@ -9,9 +9,10 @@ import { borrarFacturaEmitida, deshacerCobro } from '../../services/facturas'
 import { useLibros } from '../libros/LibrosProvider'
 import { FacturaDetalle } from './FacturaDetalle'
 import { FacturaForm } from './FacturaForm'
+import { NumeracionForm } from './NumeracionForm'
 import { TesoreriaForm } from './TesoreriaForm'
 
-type ModalState = { tipo: 'nueva' } | { tipo: 'editar' | 'cobrar'; f: FacturaEmitida } | null
+type ModalState = { tipo: 'nueva' } | { tipo: 'numeracion' } | { tipo: 'editar' | 'cobrar'; f: FacturaEmitida } | null
 
 export function FacturasEmitidasPage() {
   const { eid, anio, emitidas, emitidasAnteriores, ejercicio } = useLibros()
@@ -59,6 +60,7 @@ export function FacturasEmitidasPage() {
         actions={
           <>
             <Button variant="secondary" onClick={exportar} disabled={!visibles.length}>Exportar CSV</Button>
+            <Button variant="secondary" onClick={() => setModal({ tipo: 'numeracion' })} disabled={!abierto}>Numeración</Button>
             <Button onClick={() => setModal({ tipo: 'nueva' })} disabled={!abierto}>Nueva factura</Button>
           </>
         }
@@ -134,6 +136,11 @@ export function FacturasEmitidasPage() {
         {visibles.length === 0 && <p className="p-8 text-center text-sm text-slate-500">No hay facturas.</p>}
       </TableWrap>
 
+      {modal?.tipo === 'numeracion' && (
+        <Modal title={`Numeración de facturas ${anio}`} onClose={() => setModal(null)}>
+          <NumeracionForm onDone={() => setModal(null)} />
+        </Modal>
+      )}
       {modal?.tipo === 'nueva' && (
         <Modal title="Nueva factura emitida" onClose={() => setModal(null)} wide>
           <FacturaForm tipo="emitida" fechaInicial={hoyEn(anio)} onDone={() => setModal(null)} />

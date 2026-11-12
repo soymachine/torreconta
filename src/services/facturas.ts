@@ -3,7 +3,7 @@
  * transacción la factura, su asiento y los contadores del ejercicio, para que
  * la contabilidad nunca quede a medias.
  */
-import { runTransaction, writeBatch, type DocumentReference, type Transaction } from 'firebase/firestore'
+import { getDocs, query, runTransaction, where, writeBatch, type DocumentReference, type Transaction } from 'firebase/firestore'
 import { db } from '../firebase'
 import { aAsientoData, validarAsiento, type BorradorAsiento, type OrigenAsiento } from '../lib/asientos'
 import {
@@ -16,6 +16,7 @@ import {
 } from '../lib/contabilizacion'
 import { resolverCuentaGasto, type Cuenta } from '../lib/cuentas'
 import type { Categoria, FacturaEmitida, FacturaRecibida, Tercero } from '../lib/tipos'
+import { validarInicioNumeracion } from '../lib/numeracion'
 import { leerEjercicioAbierto } from './ejercicios'
 import { asientoRef, asientosCol, ejercicioRef, emitidaRef, emitidasCol, nuevoId, recibidaRef, recibidasCol } from './paths'
 
@@ -136,6 +137,21 @@ export async function borrarFacturaEmitida(eid: string, f: FacturaEmitida) {
     tx.delete(asientoRef(eid, f.asientoId))
     tx.delete(emitidaRef(eid, f.id))
     tx.update(ejercicioRef(eid, f.ejercicio), { contadorFacturas: f.secuencia - 1 })
+  })
+}
+
+/**
+ * Cambia el número de la próxima factura emitida del ejercicio (p. ej. al
+ * empezar a usar la app a mitad de año). Nunca por debajo de una ya emitida.
+ */
+export async function cambiarInicioNumeracion(eid: string, anio: number, serie: string, siguiente: number) {
+  const emitidas = await getDocs(query(emitidasCol(eid), where('ejercicio', '==', anio)))
+  const ultima = Math.max(0, ...emitidas.docs.map((d) => d.data().secuencia as number))
+  const error = validarInicioNumeracion(siguiente, ultima, numeroFactura(serie, anio, ultima))
+  if (error) throw new Error(error)
+  await runTransaction(db, async (tx) => {
+    await leerEjercicioAbierto(tx, eid, anio)
+    tx.update(ejercicioRef(eid, anio), { contadorFacturas: siguiente - 1 })
   })
 }
 
